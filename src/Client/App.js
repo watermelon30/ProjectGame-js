@@ -1,11 +1,10 @@
-var player1;
 
+var player1;
 
 function startGame(){
     player1 = new player(200,25,"red", 500,500);
     gameArea.start();
 }
-
 
 var gameArea = {
     Canvas : document.getElementById('canvas'),
