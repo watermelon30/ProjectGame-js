@@ -1,11 +1,22 @@
-var player1;
+var player1;    
 var pointArray = [];
 var canvas  = document.getElementById('canvas');
 var ctx = canvas.getContext("2d");
 
 var gameArea = {  
-    targetX : innerWidth/2,
-    targetY : innerHeight/2,
+    //target: used to determine the player direction and speed.
+    target : new Vector2d(window.innerWidth/2, window.innerHeight/2),
+    //Top left corner coordinate of the canvas. 
+    canvasTL : new Vector2d(0,0),
+    //Bottom right corner coordinate of the canvas.
+    // canvasBR : new Vector2d(4000,4000),
+    canvasBR : new Vector2d(4000,4000),
+
+    //Top left corner coordinate of the screen. 
+    screenTL : new Vector2d(0,0),
+    //Bottom right corner coordinate of the screen. 
+    // screenBR : new Vector2d(canvas.width, canvas.height),
+    screenBR : new Vector2d(window.innerWidth, window.innerHeight),
     lMousePress : 0, //1 when left mouse key pressed
     rMousePress : 0, //1 when right mouse key pressed
     mouseClick : 0, //1 for left rotate, 2 for right rotate, 0 for no rotate.
@@ -18,8 +29,8 @@ var gameArea = {
         
         canvas.addEventListener('mousemove', function(e) {
             var bounds = document.getElementById('canvas').getBoundingClientRect();
-            gameArea.targetX = e.clientX - bounds.x;
-            gameArea.targetY = e.clientY - bounds.y;
+            gameArea.target.x = e.clientX;
+            gameArea.target.y = e.clientY;
         });
         canvas.addEventListener('mousedown', function(e){
             //e.button =  0 when left click, 2 when right click.
@@ -43,7 +54,6 @@ var gameArea = {
             else gameArea.mouseClick = 0;
         });
 
-        background.addEventListener('load', drawBackground, false);
 
     },
     clear: function(){
@@ -54,30 +64,33 @@ var gameArea = {
 function init(){
     ctx.canvas.width  = window.innerWidth;
     ctx.canvas.height = window.innerHeight;
-    player1 = new playerRect(50,200,"red", 500,500);
-    // player1 = new playerCir(50,"red", 500,500);
-    // player1 = new playerLine(100,"red",500,500);
+    // console.log(ctx.canvas.width + " " + ctx.canvas.height);
+    
+
+    // player1 = new playerRect(50,200,"red",  window.innerWidth/2,window.innerHeight/2);
+    // player1 = new playerCir(50,"red", window.innerWidth/2,window.innerHeight/2);
+    player1 = new playerLine(100,"red", window.innerWidth/2,window.innerHeight/2);
 
         
     var x, y, radius = 10, color;
-    for(let i=0; i< 500; i++){
+    for(let i=0; i< 5000; i++){
         color = randomColor();
-        x = Math.random() * (canvas.width - radius);
-        y = Math.random() * (canvas.height - radius);
+        x = Math.random() * (gameArea.canvasBR.x - radius);
+        y = Math.random() * (gameArea.canvasBR.y - radius);
         if(i != 0){
             //Check for overlapping points
             //Note: This does not actually prevent all overlapping, but enough.
             for(let j=0; j< pointArray.length; j++){
                 if(distance(x,y, pointArray[j].x, pointArray[j].y) < radius * 2) {
-                    x = Math.random() * (canvas.width - radius);
-                    y = Math.random() * (canvas.height - radius);
+                    x = Math.random() * (gameArea.canvasBR.x - radius);
+                    y = Math.random() * (gameArea.canvasBR.y - radius);
                     //j-- to recheck overlapping.
                     j--;
                 }
                 //TODO: Check overlapping with player object.
             }
         }
-        pointArray.push(new gameCircle(radius, color, x, y));
+        pointArray.push(new gamePoint(radius, color, x, y));
     }
 }
 
@@ -104,59 +117,64 @@ function gameObject(x, y, color){
     this.y = y;
 }
 
-function gameCircle(radius, color, x, y){
+function gamePoint(radius, color, x, y){
     gameObject.call(this, x, y, color);
     this.radius = radius;
     this.tempColor = this.color;
     this.velocity = new Vector2d(0,0);
     this.corner = 0;
     this.update = function(){
-        ctx.beginPath();   
-        ctx.fillStyle = this.color;
-        ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI, false);
-        ctx.fill();
-        ctx.closePath();
+        //Draw only if the coordinate is inside the screen coordinate.
+        if(this.x >= gameArea.screenTL.x && this.x <= gameArea.screenBR.x){
+            if(this.y >= gameArea.screenTL.y && this.y <= gameArea.screenBR.y){
+                ctx.beginPath();
+                ctx.fillStyle = this.color;
+                //Substract screen top left to get coordinate in screen perspective.
+                ctx.arc(this.x-gameArea.screenTL.x, this.y-gameArea.screenTL.y, this.radius, 0, 2*Math.PI, false);
+                ctx.fill();
+                ctx.closePath();
+            }
+         } 
     }
-    //TODO: Calculate the force from collision with player and apply friction to make it stop.
     this.newPos = function(){ 
+        if(!player1 instanceof playerLine){
+            if(player1.collisionFunc(this)){
+                this.color = "white";
+                console.log('collide!');
+                let b = player1.bounce(this);
+                this.velocity.x += 2 * b.x;
+                this.velocity.y += 2 * b.y;
+                console.log(this.velocity.x+","+this.velocity.y);
+            } else{
+                //This is to prevent from all points stuck in a corner.
+                if(this.corner > 1){
+                    this.velocity.x = Math.random() * 10;
+                    this.velocity.y = Math.random() * 10;
+                }
+                // if(distance(this.x, this.y, gameArea.canvasTL.x, gameArea.canvasTL.y) < 2){
+                    // this.velocity.x = Math.random() * 10;
+                    // this.velocity.y = Math.random() * 10;
+                // }
+                this.corner = 0;
+                this.color = this.tempColor;
 
-         
-        if(circle_Collision(player1, this)){
-            this.color = "white";
-            let b = bounce2(player1, this);
-            this.velocity.x += 2 * b.x;
-            this.velocity.y += 2 * b.y;
-        }
-        else if(rect_Cir_collision(player1, this)){
-            this.color = "white";
-            let b = bounce4(player1, this);
-            this.velocity.x += 2 * b.x;
-            this.velocity.y += 2 * b.y;
-        } else{
-            
-            //This is to prevent from all points stuck in a corner.
-            if(this.corner > 1){
-                this.velocity.x = Math.random() * 10;
-                this.velocity.y = Math.random() * 10;
+                //Appy friction.
+                this.velocity.x = this.velocity.x * 0.98;
+                this.velocity.y = this.velocity.y * 0.98;
+                
+                //Force stop when velocity is small.
+                if(distance(0,0,this.velocity.x, this.velocity.y) < 0.2) {
+                    this.velocity.x = 0;
+                    this.velocity.y = 0;
+                }
             }
-            this.corner = 0;
-            this.color = this.tempColor;
+        }
 
-            //Appy friction.
-            this.velocity.x = this.velocity.x * 0.98;
-            this.velocity.y = this.velocity.y * 0.98;
-            
-            //Force stop when velocity is small.
-            if(distance(0,0,this.velocity.x, this.velocity.y) < 0.2) {
-                this.velocity.x = 0;
-                this.velocity.y = 0;
-            }
-        }
-               //Bounce off the when the point touches the boundary of canvas.
+        //Bounce off the when the point touches the boundary of canvas.
 
         //Touch right side of boundary
-        if(this.x >= canvas.width - this.radius) {
-            this.x = canvas.width - this.radius;
+        if(this.x >= gameArea.canvasBR.x - this.radius) {
+            this.x = gameArea.canvasBR.x - this.radius;
             this.velocity.x = -this.velocity.x;
             this.corner++;
         }
@@ -173,15 +191,15 @@ function gameCircle(radius, color, x, y){
             this.corner++;
         }
         //Touch bottom of the boundary.
-        else if(this.y >= canvas.height - this.radius) {
-            this.y = canvas.height - this.radius;
+        else if(this.y >= gameArea.canvasBR.y - this.radius) {
+            this.y =  gameArea.canvasBR.y- this.radius;
             this.velocity.y = -this.velocity.y;
             this.corner++;
         }
-
         //Movement
-        this.x +=  this.velocity.x;
+        this.x += this.velocity.x;
         this.y +=  this.velocity.y;
+        
     }
 }
 
@@ -195,78 +213,157 @@ function playerRect(width, height, color, x, y){
     
     this.update = function(){
         ctx.save();
-        ctx.translate(this.x, this.y);
+        ctx.translate(window.innerWidth/2, window.innerHeight/2);
         ctx.rotate(this.angle);
         ctx.fillStyle = this.color;
         ctx.fillRect(this.width / -2, this.height / -2, this.width, this.height);
         ctx.restore();  
     };
     this.newPos = function(){
+
         this.angle += this.moveAngle * Math.PI / 180;
-        this.velocity = playerMovement(this.x, this.y, gameArea.targetX, gameArea.targetY, this.force, 0);
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
+        this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force);
+        let playerVelo = checkBound(this.x, this.y, this.velocity, 0);
+
+        this.x += playerVelo.x;
+        this.y += playerVelo.y;
+        // this.x += this.velocity.x;
+        // this.y += this.velocity.y;
     };
+
+    this.collisionFunc = function(point){
+        return rect_Cir_collision(this, point);
+    };
+
+    this.bounce = function(point){
+        return bounce4(this, point);
+    }
 }
 
 function playerCir(radius, color, x, y){ 
     gameObject.call(this, x, y, color);
     this.radius = radius;
-    this.force = 2.5;    
+    this.force = 2.5;
+    this.velocity = new Vector2d(0,0); 
     this.update = function(){
         ctx.beginPath();
         ctx.globalAlpha=0.6;
         ctx.fillStyle = this.color;
         //Draw the circle bigger than its radius to make more realistic collision.
-        ctx.arc(this.x, this.y, this.radius+5, 0, 2*Math.PI, false);
+        ctx.arc(window.innerWidth/2, window.innerHeight/2, this.radius+5, 0, 2*Math.PI, false);
         ctx.fill();
         ctx.closePath();
         ctx.globalAlpha = 1;
 
     };
     this.newPos = function(){
-        this.velocity = playerMovement(this.x, this.y, gameArea.targetX, gameArea.targetY, this.force, this.radius);
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
+        this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force);
+        let playerVelo = checkBound(this.x, this.y, this.velocity, this.radius);
+        this.x += playerVelo.x;
+        this.y += playerVelo.y;
+        //console.log(gameArea.screenBR.x + ", " + gameArea.screenBR.y);
     };
+    this.collisionFunc = function(point){
+        return circle_Collision(this, point);
+    }
+
+    this.bounce = function(point){
+        return bounce2(this, point);
+    }
 }
+
+
+//Player movement when moving mouse cursor.
+function playerMovement(x, y, targetX, targetY, force){
+    //Get the direction from middle screen point to the cursor.
+    let dx = targetX - window.innerWidth/2,
+        dy = targetY - window.innerHeight/2,
+        dist = distance(targetX, targetY, window.innerWidth/2, window.innerHeight/2);
+        force = 5;
+    //Distance between cursor and player position.
+    // TODO: Slower the player if distance is close. 
+    if(dist < 50){
+        force = 0;
+    }
+
+    //Calculate the velocity (next position) from one point to another with constant speed.
+    let velX = (dx/dist)*force,
+        velY = (dy/dist)*force; 
+
+    var velocity = new Vector2d(velX, velY);
+    return velocity;  
+}
+
 
 function playerLine(length, color, x, y){
     gameObject.call(this, x, y, color);
     this.length = length;
-    this.x = x;
-    this.y = y;
-
-    this.color = color;
     this.direction = new Vector2d(1,1);
     this.dist = 1;
     this.update = function(){
         ctx.lineWidth=5;
         ctx.strokeStyle = this.color;
         ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x - this.endPoint.x, this.y - this.endPoint.y);
+        ctx.moveTo(window.innerWidth/2, window.innerHeight/2);
+        ctx.lineTo(window.innerWidth/2 - this.endPoint.x, window.innerHeight/2 - this.endPoint.y);
+        // ctx.lineTo(this.x - this.endPoint.x, this.y - this.endPoint.y);
         ctx.stroke();
 
         ctx.closePath();
     };
     this.newPos = function(){
         //Not Done
-        this.velocity = playerMovement(this.x, this.y, gameArea.targetX, gameArea.targetY, this.force, 0);
+        // this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force, 0);
+        // if(distance(0,0,this.velocity.x, this.velocity.y)!= 0){
+        //     this.direction = this.velocity;
+        // }
+        // this.x += this.velocity.x;
+        // this.y += this.velocity.y;
+        // this.endPoint = getLine(this.x, this.y, this.direction, this.length);
+
+        this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force, 0);
         if(distance(0,0,this.velocity.x, this.velocity.y)!= 0){
             this.direction = this.velocity;
         }
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
-        this.endPoint = getLine(this.x, this.y, this.direction, this.length);
+
+        this.endPoint = getLine(window.innerWidth/2, window.innerHeight/2, this.direction, this.length);
+        let playerVelo = checkBound(this.x, this.y, this.velocity, 0);
+
+        this.x += playerVelo.x;
+        this.y += playerVelo.y;        
 
     };
 }
 
+
+function checkBound(playerX, playerY, velocity, limit){
+    //Move in x direction if screen bound will not touch canvas bound.
+    let playerVelo = new Vector2d(0,0);
+    if(playerX + velocity.x <= gameArea.canvasBR.x - limit){
+        if(playerX + velocity.x >= gameArea.canvasTL.x + limit){
+            gameArea.screenTL.x += velocity.x; 
+            gameArea.screenBR.x += velocity.x;
+            playerVelo.x = velocity.x;
+        }
+    } 
+    //Move in y direction if screen bound will not touch canvas bound.
+    if(playerY + velocity.y < gameArea.canvasBR.y - limit){
+        if(playerY + velocity.y > gameArea.canvasTL.y + limit){
+            gameArea.screenTL.y += velocity.y;
+            gameArea.screenBR.y += velocity.y;
+            playerVelo.y += velocity.y;
+        } 
+    }
+    return playerVelo;
+}
+
+
+
+//Get the endpoint of the character line.
 function getLine(x, y, target, length){
     var dx, dy, d, endPoint;
-    dx = target.x-x,
-    dy = target.y-y;
+    dx = target.x- x,
+    dy = target.y- y;
     //Direction of the line.
     d = normalise(new Vector2d(target.x,target.y));
 
@@ -316,32 +413,12 @@ function circle_Collision(cir1, cir2){
 
     //Collision == true if the distance from the centre of one circle 
     //to the centre of another circle is smaller than the sum of two circles' radius.
-    if(distance(cir1.x, cir1.y, cir2.x, cir2.y) < cir1.radius + cir2.radius){
+    if(distance(cir1.x, cir1.y, cir2.x, cir2.y) <= cir1.radius + cir2.radius){
         return true;
     }
     return false;
 }
 
-//Player movement when moving mouse cursor.
-function playerMovement(x, y, targetX, targetY, force, limit)
-{
-    if(targetX > canvas.width - limit) targetX = canvas.width - limit;
-    else if (targetX < 0 + limit) targetX = limit;
-    if(targetY > canvas.height - limit) targetY = canvas.height - limit;
-    else if(targetY < 0 + limit) targetY = limit;
-    //Calculate the velocity (next position) from one point to another with constant speed.
-    let dx = targetX - x,
-        dy = targetY - y,
-        dist = distance(targetX, targetY, x, y);
-        force = 5;
-    if(dist < 3){
-        force = 0;
-    }
-    let velX = (dx/dist)*force,
-        velY = (dy/dist)*force;
-    var velocity = new Vector2d(velX, velY);
-    return velocity;  
-}
 
 function Vector2d(x, y){
     this.x = x;
@@ -439,43 +516,50 @@ function bounce4(player, point){
 
     //c: To control the force applied onto the point.
     c = 0.8;
-    unrotated = point;
+    unrotated = new Vector2d(point.x, point.y);
     unrotated.x = Math.cos(-player.angle) * (point.x - player.x) - Math.sin(-player.angle) * (point.y - player.y) + player.x;
     unrotated.y = Math.sin(-player.angle) * (point.x - player.x) + Math.cos(-player.angle) * (point.y - player.y) + player.y; 
     closest = closestPoint(unrotated.x, unrotated.y, player);
 
-    //d: directional vector from the closest point from a player to point to the centre of the point.
-    d = new Vector2d(point.x - closest.x, point.y - closest.y);
-    d.x =  Math.cos(player.angle) * (d.x - player.x) - Math.sin(player.angle) * (d.y - player.y) + player.x;
-    d.y = Math.sin(player.angle) * (d.x - player.x) + Math.cos(player.angle) * (d.y - player.y) + player.y; 
+    //d: directional vector from the closest point from a player to point to the centre of the point 
+      //in unrotated rectangle's perspective.
+    d = new Vector2d(unrotated.x - closest.x, unrotated.y - closest.y);
     d = normalise(d);
 
-    
+    //Rotate the d back to rotated rectangle's prespective.
+    d2 = new Vector2d(d.x, d.y);
+    d2.x = Math.cos(player.angle) * d.x - Math.sin(player.angle) * d.y;
+    d2.y = Math.sin(player.angle) * d.x + Math.cos(player.angle) * d.y;
 
     rotateRadius = new Vector2d(closest.x - player.x, closest.y - player.y);
     moveAngle = player.moveAngle * Math.PI / 180;
-    //Previous X and Y of the player
-    preX = Math.cos(-moveAngle) * (rotateRadius.x) - Math.sin(-moveAngle) * (rotateRadius.y) + player.x,
-    preY = Math.sin(-moveAngle) * (rotateRadius.x) + Math.cos(-moveAngle) * (rotateRadius.y) + player.y;
-    
-    rotateVelocity = new Vector2d(player.x - preX, player.y - preY);
-    // console.log(rotateVelocity);
-    // console.log(player.x + "," + player.y)
+    //Previous X and Y of the closest point
+    preX = Math.cos(-moveAngle) * (rotateRadius.x) - Math.sin(-moveAngle) * (rotateRadius.y) + closest.x,
+    preY = Math.sin(-moveAngle) * (rotateRadius.x) + Math.cos(-moveAngle) * (rotateRadius.y) + closest.y;
 
-    // rotateVelocity = normalise(rotateVelocity);
-    // velocityVector = new Vector2d(player.velocity.x - point.velocity.x, player.velocity.y - point.velocity.y);
+    // d3 = new Vector2d(closest.x - preX, closest.y - preY)
 
-    velocityVector = new Vector2d(player.velocity.x - point.velocity.x,
-         player.velocity.y - point.velocity.y);
+    d3 = new Vector2d(closest.x - preX, closest.y - preY);
+    d3 = normalise(d3);
+
+    d4 = new Vector2d(d3.x, d3.y);
+    d4.x = Math.cos(moveAngle) * d4.x - Math.sin(moveAngle) * d4.y;
+    d4.y = Math.sin(moveAngle) * d4.x + Math.cos(moveAngle) * d4.y;
+
+    // console.log("current moveangle: " + player.moveAngle);
+    // console.log("rotate velo: " + rotateVelocity.x + "," + rotateVelocity.y);
+
+    velocityVector = new Vector2d(player.velocity.x - point.velocity.x + d4.x ,
+         player.velocity.y - point.velocity.y + d4.y);
 
     //l: length of velocityVector projected onto direction d.
-    l = dot2(velocityVector, d);
+    l = dot2(velocityVector, d2);
     
     //Prevent situation where angle of velocityVector and d > 90,
     //which makes the point going to the same direction of player.
     if(l < 0) l = 0;
 
-    velocityToPoint = new Vector2d(d.x * l * c, d.y * l * c);
+    velocityToPoint = new Vector2d(d2.x * l * c, d2.y * l * c);
 
     return velocityToPoint;
 }
@@ -504,6 +588,7 @@ function distance(x1, y1, x2, y2){
 
 function updateGameArea(){
     gameArea.clear();
+
     ctx.fillStyle = "black";
     ctx.fillRect(0,0, canvas.width , canvas.height);
     if(player1 instanceof playerRect){
