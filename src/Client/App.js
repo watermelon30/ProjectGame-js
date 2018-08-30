@@ -2,6 +2,10 @@ var player1;
 var pointArray = [];
 var canvas  = document.getElementById('canvas');
 var ctx = canvas.getContext("2d");
+var socket = io();
+socket.on('message', function(data) {console.log(data);}); 
+
+
 
 var gameArea = {  
     //target: used to determine the player direction and speed.
@@ -10,7 +14,7 @@ var gameArea = {
     canvasTL : new Vector2d(0,0),
     //Bottom right corner coordinate of the canvas.
     // canvasBR : new Vector2d(4000,4000),
-    canvasBR : new Vector2d(4000,4000),
+    canvasBR : new Vector2d(3000,3000),
 
     //Top left corner coordinate of the screen. 
     screenTL : new Vector2d(0,0),
@@ -20,6 +24,7 @@ var gameArea = {
     lMousePress : 0, //1 when left mouse key pressed
     rMousePress : 0, //1 when right mouse key pressed
     mouseClick : 0, //1 for left rotate, 2 for right rotate, 0 for no rotate.
+    gridGap : 50, //Gap between each background grid.
     start: function() {
 
         //setCanvasSize(this.bounds);
@@ -54,26 +59,47 @@ var gameArea = {
             else gameArea.mouseClick = 0;
         });
 
-
     },
     clear: function(){
         ctx.clearRect(0,0, canvas.width , canvas.height);
+    },
+    drawBackground: function(){
+        ctx.lineWidth=1;
+        ctx.strokeStyle = "white";
+        ctx.globalAlpha=0.5;
+        ctx.beginPath();
+        //firstVertical / firstParallel: first line to draw on the screen.
+        let firstVertical = Math.floor(this.screenTL.x / this.gridGap) + 1,
+            firstParallel = Math.floor(this.screenTL.y / this.gridGap) + 1;
+
+        //Draw vertical background line.
+        for(var i = firstVertical*this.gridGap; i <= this.screenBR.x; i += this.gridGap){
+            ctx.moveTo(i - this.screenTL.x, 0); 
+            ctx.lineTo(i - this.screenTL.x, this.canvasBR.y);
+        }
+
+        //Draw parallel background line.
+        for(var j = firstParallel*this.gridGap; j<= this.screenBR.y; j += this.gridGap){
+            ctx.moveTo(0, j - this.screenTL.y);
+            ctx.lineTo(this.canvasBR.x, j - this.screenTL.y);
+        }   
+
+        ctx.stroke();
+        ctx.globalAlpha=1;
+        ctx.closePath();
     }
 };
 
 function init(){
     ctx.canvas.width  = window.innerWidth;
-    ctx.canvas.height = window.innerHeight;
-    // console.log(ctx.canvas.width + " " + ctx.canvas.height);
-    
+    ctx.canvas.height = window.innerHeight;    
 
-    // player1 = new playerRect(50,200,"red",  window.innerWidth/2,window.innerHeight/2);
+    player1 = new playerRect(40,180,"red",  window.innerWidth/2,window.innerHeight/2);
     // player1 = new playerCir(50,"red", window.innerWidth/2,window.innerHeight/2);
-    player1 = new playerLine(100,"red", window.innerWidth/2,window.innerHeight/2);
+    // player1 = new playerLine(100,"red", window.innerWidth/2,window.innerHeight/2);
 
-        
     var x, y, radius = 10, color;
-    for(let i=0; i< 5000; i++){
+    for(let i=0; i< 1000; i++){
         color = randomColor();
         x = Math.random() * (gameArea.canvasBR.x - radius);
         y = Math.random() * (gameArea.canvasBR.y - radius);
@@ -93,13 +119,10 @@ function init(){
         pointArray.push(new gamePoint(radius, color, x, y));
     }
 }
-
 function startGame(){
     init();
     gameArea.start();
 }
-
-
 function randomColor() {
     //Generate a random hex color code.
     var letters = '0123456789ABCDEF';
@@ -109,7 +132,6 @@ function randomColor() {
     }
     return color;
 }
-
 //Base class of all objects in canvas.
 function gameObject(x, y, color){
     this.color = color;
@@ -124,9 +146,9 @@ function gamePoint(radius, color, x, y){
     this.velocity = new Vector2d(0,0);
     this.corner = 0;
     this.update = function(){
-        //Draw only if the coordinate is inside the screen coordinate.
-        if(this.x >= gameArea.screenTL.x && this.x <= gameArea.screenBR.x){
-            if(this.y >= gameArea.screenTL.y && this.y <= gameArea.screenBR.y){
+        //Draw only if the shape is inside the screen coordinate.
+        if(this.x >= gameArea.screenTL.x - this.radius && this.x <= gameArea.screenBR.x + this.radius){
+            if(this.y >= gameArea.screenTL.y - this.radius && this.y <= gameArea.screenBR.y + this.radius){
                 ctx.beginPath();
                 ctx.fillStyle = this.color;
                 //Substract screen top left to get coordinate in screen perspective.
@@ -137,14 +159,14 @@ function gamePoint(radius, color, x, y){
          } 
     }
     this.newPos = function(){ 
-        if(!player1 instanceof playerLine){
+        if(!(player1 instanceof playerLine)){
             if(player1.collisionFunc(this)){
                 this.color = "white";
-                console.log('collide!');
+                // console.log('collide!');
                 let b = player1.bounce(this);
                 this.velocity.x += 2 * b.x;
                 this.velocity.y += 2 * b.y;
-                console.log(this.velocity.x+","+this.velocity.y);
+                // console.log(this.velocity.x+","+this.velocity.y);
             } else{
                 //This is to prevent from all points stuck in a corner.
                 if(this.corner > 1){
@@ -169,6 +191,7 @@ function gamePoint(radius, color, x, y){
                 }
             }
         }
+        
 
         //Bounce off the when the point touches the boundary of canvas.
 
@@ -199,8 +222,85 @@ function gamePoint(radius, color, x, y){
         //Movement
         this.x += this.velocity.x;
         this.y +=  this.velocity.y;
+
+
         
     }
+}   
+
+function gameNeedle(length, direction, speed, color, x, y){
+    gameObject.call(this, x, y, color);
+    this.length = length - 50;
+    this.direction = normalise(direction);
+    this.direction.x *= speed;
+    this.direction.y *= speed; 
+    this.endPoint = new Vector2d(0,0);
+    this.alive = true;
+    // console.log(this.direction);
+    this.update = function(){
+        if(this.x >= gameArea.screenTL.x - this.length && this.x <= gameArea.screenBR.x + this.length){
+            if(this.y >= gameArea.screenTL.y - this.length && this.y <= gameArea.screenBR.y + this.length){
+                ctx.lineWidth=5;
+                ctx.strokeStyle = "white";
+                ctx.beginPath();
+                ctx.moveTo(this.x-gameArea.screenTL.x, this.y-gameArea.screenTL.y);
+                ctx.lineTo(this.x-gameArea.screenTL.x - this.endPoint.x, this.y-gameArea.screenTL.y - this.endPoint.y);
+                ctx.stroke();
+                ctx.closePath();
+            }
+        }
+    };
+    this.newPos = function(){
+        this.endPoint = getLine(this.x, this.y, this.direction, this.length);
+        this.x += this.direction.x;
+        this.y += this.direction.y;
+        // console.log(this.x);
+
+        // if(this.x < screenTL.x || this.y > screenBR.x) {
+        //     this.alive = false;
+        // }
+    };
+}
+
+function playerLine(length, color, x, y){
+    gameObject.call(this, x, y, color);
+    this.length = length;
+    this.direction = new Vector2d(1,1);
+    this.needleArray = [];
+    this.playerVelo = new Vector2d(0,0);
+    this.update = function(){
+        ctx.lineWidth=5;
+        ctx.strokeStyle = this.color;
+        ctx.beginPath();
+        ctx.moveTo(window.innerWidth/2, window.innerHeight/2);
+        ctx.lineTo(window.innerWidth/2 - this.endPoint.x, window.innerHeight/2 - this.endPoint.y);
+        // ctx.lineTo(this.x - this.endPoint.x, this.y - this.endPoint.y);
+        ctx.stroke();
+
+        ctx.closePath();
+    };
+    this.newPos = function(){
+
+        this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force, 0);
+        if(distance(0,0,this.velocity.x, this.velocity.y)!= 0){
+            this.direction = this.velocity;
+        }
+
+        this.endPoint = getLine(window.innerWidth/2, window.innerHeight/2, this.direction, this.length);
+        this.playerVelo = checkBound(this.x, this.y, this.velocity, 0);
+
+        this.x += this.playerVelo.x;
+        this.y += this.playerVelo.y;
+        // console.log(this.x + ", " + this.y);   
+    };
+
+    this.emit = function(){
+        this.needleArray.push(new gameNeedle(this.length, this.velocity, 8, this.color, this.x, this.y));
+    };
+
+    this.cleanNeedle = function(){
+        //To ask: Necessary to clean needle out of canvas from the needleArray?
+    };
 }
 
 function playerRect(width, height, color, x, y){ 
@@ -210,25 +310,46 @@ function playerRect(width, height, color, x, y){
     this.angle = 0;
     this.moveAngle = 0;
     this.force = 3;
-    
+    this.playerVelo = new Vector2d(0,0);
+
     this.update = function(){
         ctx.save();
         ctx.translate(window.innerWidth/2, window.innerHeight/2);
         ctx.rotate(this.angle);
         ctx.fillStyle = this.color;
-        ctx.fillRect(this.width / -2, this.height / -2, this.width, this.height);
-        ctx.restore();  
+        ctx.fillRect((this.width + 10) / -2, (this.height + 10) / -2, this.width + 10, this.height + 10);
+        ctx.restore();
     };
     this.newPos = function(){
-
+        // console.log(this.angle);
         this.angle += this.moveAngle * Math.PI / 180;
         this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force);
-        let playerVelo = checkBound(this.x, this.y, this.velocity, 0);
-
-        this.x += playerVelo.x;
-        this.y += playerVelo.y;
-        // this.x += this.velocity.x;
-        // this.y += this.velocity.y;
+        this.playerVelo = checkBound(this.x, this.y, this.velocity, 0);
+        this.x += this.playerVelo.x;
+        this.y += this.playerVelo.y;
+        // let backX = 0;
+        // let backY = 0;
+        // pointArray.forEach(point => {
+        //         if(this.collisionFunc(point)){
+        //             let closest = closestPoint(point.x, point.y, this);
+        //             let toXBound = Math.abs(closest.x - point.radius*2);
+        //             let toYBound = Math.abs(closest.y - point.radius*2);
+        //             // console.log(toXBound);
+        //             if(toXBound-5 <= gameArea.canvasTL.x || toXBound-5 >= gameArea.canvasBR.x){
+        //                 console.log("Bang!");
+        //                 backX = this.playerVelo.x;
+        //                 this.playerVelo.x = 0;
+        //             }   
+        //             if(toYBound <= gameArea.canvasTL.y || toYBound >= gameArea.canvasBR.y){
+        //                 backY = this.playerVelo.y;
+        //                 this.playerVelo.y = 0;
+        //             }
+        //         }
+        // });
+        // this.x -= backX;
+        // this.y -= backY;
+        // this.x += this.playerVelo.x;
+        // this.y += this. playerVelo.y;
     };
 
     this.collisionFunc = function(point){
@@ -245,6 +366,7 @@ function playerCir(radius, color, x, y){
     this.radius = radius;
     this.force = 2.5;
     this.velocity = new Vector2d(0,0); 
+    this.playerVelo = new Vector2d(0,0);
     this.update = function(){
         ctx.beginPath();
         ctx.globalAlpha=0.6;
@@ -258,9 +380,9 @@ function playerCir(radius, color, x, y){
     };
     this.newPos = function(){
         this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force);
-        let playerVelo = checkBound(this.x, this.y, this.velocity, this.radius);
-        this.x += playerVelo.x;
-        this.y += playerVelo.y;
+        this.playerVelo = checkBound(this.x, this.y, this.velocity, this.radius);
+        this.x += this.playerVelo.x;
+        this.y += this.playerVelo.y;
         //console.log(gameArea.screenBR.x + ", " + gameArea.screenBR.y);
     };
     this.collisionFunc = function(point){
@@ -272,69 +394,54 @@ function playerCir(radius, color, x, y){
     }
 }
 
+// function needleMovement(x, y, targetX, targetY, force){
+//     if(targetX > gameArea.canvasBR.x) targetX = gameArea.canvasBR.x;
+//     else if (targetX < gameArea/canvasTL.x) targetX = gameArea/canvasTL.x;
+//     if(targetY > gameArea.canvasBR.y) targetY = gameArea.canvasBR.y;
+//     else if(targetY < gameArea.canvasTL.y) targetY = gameArea.canvasTL.y;
+//     //Calculate the velocity (next position) from one point to another with constant speed.
+//     let dx = targetX - x,
+//         dy = targetY - y,
+//         dist = distance(targetX, targetY, x, y);
+//     // if(dist < 3){
+//     //     force = 0;
+//     // }
+//     let velX = (dx/dist)*force,
+//         velY = (dy/dist)*force;
+//     var velocity = new Vector2d(velX, velY);
+//     return velocity;  
+// }
+
 
 //Player movement when moving mouse cursor.
 function playerMovement(x, y, targetX, targetY, force){
-    //Get the direction from middle screen point to the cursor.
-    let dx = targetX - window.innerWidth/2,
+
+
+    let min = Math.min(window.innerWidth/2, window.innerHeight/2),
+        dx = targetX - window.innerWidth/2,
         dy = targetY - window.innerHeight/2,
-        dist = distance(targetX, targetY, window.innerWidth/2, window.innerHeight/2);
-        force = 5;
+
+        //To make the maximum speed in x and y direction the same, we take the minimum of screen width/height 
+            //as the maximum of the cursor x and y coordinate.
+        dist = distance(Math.min(targetX, min), Math.min(targetY,min), window.innerWidth/2, window.innerHeight/2);
     //Distance between cursor and player position.
-    // TODO: Slower the player if distance is close. 
-    if(dist < 50){
-        force = 0;
-    }
+    // TODO: Slower the player if distance is close.    
+    // if(dist < 50){
+    //     force = 0;
+    // }
+    force = dist * 0.015;
+    if(Math.abs(dx) > min) dx = Math.sign(dx) * min;
+    if(Math.abs(dy) > min) dy = Math.sign(dy) * min;
 
     //Calculate the velocity (next position) from one point to another with constant speed.
     let velX = (dx/dist)*force,
         velY = (dy/dist)*force; 
 
     var velocity = new Vector2d(velX, velY);
+    // console.log(velocity);  
+
     return velocity;  
 }
-
-
-function playerLine(length, color, x, y){
-    gameObject.call(this, x, y, color);
-    this.length = length;
-    this.direction = new Vector2d(1,1);
-    this.dist = 1;
-    this.update = function(){
-        ctx.lineWidth=5;
-        ctx.strokeStyle = this.color;
-        ctx.beginPath();
-        ctx.moveTo(window.innerWidth/2, window.innerHeight/2);
-        ctx.lineTo(window.innerWidth/2 - this.endPoint.x, window.innerHeight/2 - this.endPoint.y);
-        // ctx.lineTo(this.x - this.endPoint.x, this.y - this.endPoint.y);
-        ctx.stroke();
-
-        ctx.closePath();
-    };
-    this.newPos = function(){
-        //Not Done
-        // this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force, 0);
-        // if(distance(0,0,this.velocity.x, this.velocity.y)!= 0){
-        //     this.direction = this.velocity;
-        // }
-        // this.x += this.velocity.x;
-        // this.y += this.velocity.y;
-        // this.endPoint = getLine(this.x, this.y, this.direction, this.length);
-
-        this.velocity = playerMovement(this.x, this.y, gameArea.target.x, gameArea.target.y, this.force, 0);
-        if(distance(0,0,this.velocity.x, this.velocity.y)!= 0){
-            this.direction = this.velocity;
-        }
-
-        this.endPoint = getLine(window.innerWidth/2, window.innerHeight/2, this.direction, this.length);
-        let playerVelo = checkBound(this.x, this.y, this.velocity, 0);
-
-        this.x += playerVelo.x;
-        this.y += playerVelo.y;        
-
-    };
-}
-
 
 function checkBound(playerX, playerY, velocity, limit){
     //Move in x direction if screen bound will not touch canvas bound.
@@ -347,17 +454,22 @@ function checkBound(playerX, playerY, velocity, limit){
         }
     } 
     //Move in y direction if screen bound will not touch canvas bound.
-    if(playerY + velocity.y < gameArea.canvasBR.y - limit){
-        if(playerY + velocity.y > gameArea.canvasTL.y + limit){
+    if(playerY + velocity.y <= gameArea.canvasBR.y - limit){
+        if(playerY + velocity.y >= gameArea.canvasTL.y + limit){
             gameArea.screenTL.y += velocity.y;
             gameArea.screenBR.y += velocity.y;
-            playerVelo.y += velocity.y;
+            playerVelo.y = velocity.y;
         } 
     }
+
+    gameArea.screenTL.x = playerX - innerWidth/2;
+    gameArea.screenTL.y = playerY - innerHeight/2;
+
+    gameArea.screenBR.x = playerX + innerWidth/2;
+    gameArea.screenBR.y = playerY + innerHeight/2;
+
     return playerVelo;
 }
-
-
 
 //Get the endpoint of the character line.
 function getLine(x, y, target, length){
@@ -516,12 +628,13 @@ function bounce4(player, point){
 
     //c: To control the force applied onto the point.
     c = 0.8;
-    unrotated = new Vector2d(point.x, point.y);
+    //unrotated: Rotate the point coordinate with -player.angle to get the position in unrotated rectangle's perspective.
+    unrotated = new Vector2d(0,0);
     unrotated.x = Math.cos(-player.angle) * (point.x - player.x) - Math.sin(-player.angle) * (point.y - player.y) + player.x;
     unrotated.y = Math.sin(-player.angle) * (point.x - player.x) + Math.cos(-player.angle) * (point.y - player.y) + player.y; 
     closest = closestPoint(unrotated.x, unrotated.y, player);
 
-    //d: directional vector from the closest point from a player to point to the centre of the point 
+    //d: directional vector from the closest point of a player to point to the centre of the point 
       //in unrotated rectangle's perspective.
     d = new Vector2d(unrotated.x - closest.x, unrotated.y - closest.y);
     d = normalise(d);
@@ -531,26 +644,28 @@ function bounce4(player, point){
     d2.x = Math.cos(player.angle) * d.x - Math.sin(player.angle) * d.y;
     d2.y = Math.sin(player.angle) * d.x + Math.cos(player.angle) * d.y;
 
+    //rotateRadius: the radius from closest point on rectangle to the centre of rectangle.
     rotateRadius = new Vector2d(closest.x - player.x, closest.y - player.y);
     moveAngle = player.moveAngle * Math.PI / 180;
-    //Previous X and Y of the closest point
-    preX = Math.cos(-moveAngle) * (rotateRadius.x) - Math.sin(-moveAngle) * (rotateRadius.y) + closest.x,
-    preY = Math.sin(-moveAngle) * (rotateRadius.x) + Math.cos(-moveAngle) * (rotateRadius.y) + closest.y;
+    rotateVelo2 = new Vector2d(0, 0);
 
-    // d3 = new Vector2d(closest.x - preX, closest.y - preY)
+    //Previous X and Y of the closest point before rotation (only calculate when rotation exists)
+    if(moveAngle != 0){
+        preX = Math.cos(-moveAngle) * (rotateRadius.x) - Math.sin(-moveAngle) * (rotateRadius.y) + player.x,
+        preY = Math.sin(-moveAngle) * (rotateRadius.x) + Math.cos(-moveAngle) * (rotateRadius.y) + player.y;
 
-    d3 = new Vector2d(closest.x - preX, closest.y - preY);
-    d3 = normalise(d3);
+        //Rotation velocity in unrotated rectangle's perspective.
+        rotateVelo = new Vector2d(closest.x - preX, closest.y - preY);
+        
+        //Rotation velocity in rotated rectangle's perspective.
+        rotateVelo2.x = Math.cos(player.angle) * rotateVelo.x - Math.sin(player.angle) * rotateVelo.y;
+        rotateVelo2.y = Math.sin(player.angle) * rotateVelo.x + Math.cos(player.angle) * rotateVelo.y;
+        // console.log(rotateVelo2.x + ", " + rotateVelo2.y);
+        // console.log(rotateRadius.x + ", " + rotateRadius.y);
+    }
 
-    d4 = new Vector2d(d3.x, d3.y);
-    d4.x = Math.cos(moveAngle) * d4.x - Math.sin(moveAngle) * d4.y;
-    d4.y = Math.sin(moveAngle) * d4.x + Math.cos(moveAngle) * d4.y;
-
-    // console.log("current moveangle: " + player.moveAngle);
-    // console.log("rotate velo: " + rotateVelocity.x + "," + rotateVelocity.y);
-
-    velocityVector = new Vector2d(player.velocity.x - point.velocity.x + d4.x ,
-         player.velocity.y - point.velocity.y + d4.y);
+    velocityVector = new Vector2d(player.velocity.x - point.velocity.x + rotateVelo2.x,
+                                  player.velocity.y - point.velocity.y + rotateVelo2.y);
 
     //l: length of velocityVector projected onto direction d.
     l = dot2(velocityVector, d2);
@@ -588,9 +703,10 @@ function distance(x1, y1, x2, y2){
 
 function updateGameArea(){
     gameArea.clear();
-
     ctx.fillStyle = "black";
     ctx.fillRect(0,0, canvas.width , canvas.height);
+    gameArea.drawBackground();
+
     if(player1 instanceof playerRect){
         //Left click
         if(gameArea.mouseClick == 1) player1.moveAngle = 2;
@@ -601,6 +717,18 @@ function updateGameArea(){
     }
     player1.newPos();
     player1.update();
+
+    if(player1 instanceof playerLine){
+        if(gameArea.mouseClick == 1) {
+            player1.emit();
+            console.log("emit");
+        }
+        player1.needleArray.forEach(needle => {
+            needle.update();
+            needle.newPos();
+        });
+
+    }
    pointArray.forEach(point => {
         point.newPos();
         point.update();
@@ -613,3 +741,23 @@ function setCanvasSize(bounds){
 }
 */
 startGame();
+
+
+/*
+    TODO: Line attacking mode:
+    1. Emitting needles: If other shapes get hit, size--
+    2. Pass through other shapes with the body: Other shapes' size keep --
+*/
+/*
+    TODO: Circle eating dots:
+    1.  Turn invisible. and circle can avoid attack from line.
+        When turning back to visible, dots being covered will be absorbed, and if line is under the circle,
+        the part of it will be eaten 
+    2. Change mode to choose to gain size or gain support bullet ammo when absorbing dots.
+*/
+/*
+    TODO: Rectangle: To push dots into an area for circle:
+    1. Can build brick: In brick mode, the rectangle will stop for a few seconds, then 
+        the brick will be built at the position where rectangle stops.
+    2. Can turn the needles to oppsite direction.
+*/
