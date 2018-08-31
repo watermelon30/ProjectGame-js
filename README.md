@@ -1,10 +1,10 @@
-This is the 159.333 project in Massey Univerity by Jack Chen.
+This is the 159.333 project in Massey Univerity.
 
-The project is an Agar.io like multi-player game. It introduces more characters that allows users
-to choose from. 
+This is a multi-player game inspired by famous game Agar.io. It introduces more characters with different functionalities 
+that allows users to choose from. 
 
-Program is written in Javascript with server built with Node.js and Socket.IO.
+Program is written in Javascript with server built with Node.js, Socket.io and express module.
 
-To run the program, Node.js needs to be installed in the computer. Open the command prompt,
+To run the program, Node.js needs to be installed. Open the command prompt,
 change directory to the root of the folder, and type "node server.js". Program should appear with URL
 localhost:8888 in your browser.
