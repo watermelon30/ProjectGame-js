@@ -1,0 +1,107 @@
+Game rule
+
+-Relationship
+  Circle: 
+       Special mode: Invisible mode
+           Turn invisible to aovid interaction/collision with any object.
+           
+       To points:
+           Consume to get mass.
+           To consume: All points under itself when turning from invisible to visible will be consumed.
+       To Teammate:
+           To Rectangle:
+               Emit small dots(energy) for rectangle to get bigger.
+           To Line:
+               Emit energy for line to get bigger
+           To Circle:
+               Emit energy for circle to get bigger
+       To Enemy:
+           To Rectangle:
+               Collision:
+                   Turning from invisible to visible: 
+                       Rectangle gets shrinked.
+                   Visible mode:
+                       Circle gets shrinked.
+               Energy from Circle will shrink Rectangle with small amount. 
+           To Line:
+               Collision:
+                   Turning from invisible to visible: 
+                       Line gets shrinked.
+                   Visible mode:
+                       Circle gets shrinked.
+               Energy from Circle will shrink Line with small amount.
+           To Circle:
+               Collision:
+                   Both get shrinked with same amount.
+               Energy will shrink the opponent with small amount.
+   Line:
+       Special mode: Needles emission
+           Emit high damage needles to attack other objects.
+
+       To points:
+           Consume to get ammo/mass.
+           To consume: The head of line touches the points.
+       To Teammate:
+           To Rectangle:
+               Strengthen brick by shooting needles.
+           To Circle:
+               Can absorb energy(little dots) from Circle.
+           To Line:
+               Can share ammo by shooting each other.
+       To Enemy:
+           To Rectangle:
+               Collision:
+                   Line will get shrinked.
+               Line emits needles to attack rectangle with large damage.
+           To Circle:
+               Collision:
+                   Line get shrinked if Circle turn from invisible to visible.
+                   Otherwise Circle get shrinked.
+               Line emits needles to attack circle with large damage.
+           To Line:
+               Collision:
+                    Both get shrinked with same amount.
+               Emits needles to attack each other.
+  Rectangle:
+       Special mode: Brick building
+           Build brick to avoid any attack.
+
+       To points:
+           Collect points for circle/line to absorb.
+       To Teammate:
+           To Circle: 
+               Absorbing energy from circle.
+           To Line:
+               Brick getting strengthened if being shot from Line.
+           To Rectangle:
+               Can pass through any brick made from teammate/itself.
+       To Enemy:
+           To Circle:
+               Collision:
+                   Get shrinked if circle turned from invisible to visible.
+                   Circle get shrinked otherwise.
+           To Line:
+               Collision:
+                   Line get shrinked.
+               (Bricks and player) get shrinked if shot by Line .
+           To rectangle:
+               Collision:
+                   Both get shrinked
+               Brick collision:
+                   Get shrinked but make huge damage to the brick.
+
+
+Moving Speed: 
+    -   The bigger mass the slower.
+        Speed for each character with the same amount of mass:
+            Line > Circle > Rectangle.
+
+Health amount:
+    -   The health amount of a player will start lossing when player is being attacked 
+        at the smallest possible mass.
+    -   Health amount by each character:
+            Rectangle > Circle > Line
+
+
+Winning condition:
+    All players in a team died.
