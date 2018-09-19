@@ -4,6 +4,7 @@ var Global = require('./Global.js');
 //Base class of all objects in canvas.
 class gameObject{
     constructor(x, y, color){
+        //socket.id
         this.color = color;
         this.x = x;
         this.y = y;    
@@ -30,7 +31,6 @@ class gamePoint extends gameObject{
     newSpeed(player){
             if(!(player instanceof playerLine)){
                 if(player.collisionFunc(this)){
-                    this.color = "white";
                     let b = player.bounce(this);
                     this.velocity.x += 2 * b.x;
                     this.velocity.y += 2 * b.y;
@@ -45,7 +45,6 @@ class gamePoint extends gameObject{
             this.velocity.y = Math.random() * 10;
         }
         this.corner = 0;
-        this.color = this.tempColor;
         //Bounce off the when the point touches the boundary of canvas.
 
         //Touch right side of boundary
@@ -77,8 +76,8 @@ class gamePoint extends gameObject{
         this.y += this.velocity.y;
 
         //Appy friction.
-        this.velocity.x = this.velocity.x * 0.98;
-        this.velocity.y = this.velocity.y * 0.98;
+        this.velocity.x = this.velocity.x * 0.985;
+        this.velocity.y = this.velocity.y * 0.985;
         
         //Force stop when velocity is small.
         if(this.velocity.distance(new Vector2d(0,0)) < 0.2) {
@@ -115,11 +114,18 @@ class gameNeedle extends gameObject{
         //     this.alive = false;
         // }
     }
+
+    isAlive(object){
+        if(object.beingAttacked(this)){
+            this.alive = false;
+        }
+    }
 }
 
 class playerLine extends gameObject{
-    constructor(x, y, color, screenWidth, screenHeight, length){
+    constructor(id, x, y, color, screenWidth, screenHeight, length){
         super(x,y,color);
+        this.id = id;
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
         this.length = length;
@@ -175,8 +181,9 @@ class playerLine extends gameObject{
 }
 
 class playerRect extends gameObject{
-    constructor(x, y, color, screenWidth, screenHeight, width, height){
+    constructor(id, x, y, color, screenWidth, screenHeight, width, height){
         super(x,y,color);
+        this.id = id;
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
         this.width = width;
@@ -211,20 +218,36 @@ class playerRect extends gameObject{
         this.screenBR.y = this.y + this.screenHeight/2;
     }
 
-    collisionFunc(shape){
+    collisionFunc(circle){
 
         //Rotate the circle coordinate in negetive angle of the rectangle
         //to assume thta rectangle axis is parallel to the x axis to perform collision detection.
-        var unrotatedCircleX = Math.cos(-this.angle) * (shape.x-this.x) - Math.sin(-this.angle) * (shape.y-this.y) + this.x;
-        var unrotatedCircleY = Math.sin(-this.angle) * (shape.x-this.x) + Math.cos(-this.angle) * (shape.y-this.y) + this.y;
+        var unrotatedCircleX = Math.cos(-this.angle) * (circle.x-this.x) - Math.sin(-this.angle) * (circle.y-this.y) + this.x;
+        var unrotatedCircleY = Math.sin(-this.angle) * (circle.x-this.x) + Math.cos(-this.angle) * (circle.y-this.y) + this.y;
         
         //Calculate the x and y coordinate which is the closest point on rectangle from the centre of the circle.
-        //console.log(shape.x);
+        //console.log(circle.x);
         //console.log(unrotatedCircleX);
         var closest = closestPoint(unrotatedCircleX, unrotatedCircleY, this);
 
         var dist = closest.distance(new Vector2d(unrotatedCircleX, unrotatedCircleY));
-        if(dist < shape.radius) return true; 
+        if(dist < circle.radius) return true; 
+        else return false;
+    }
+
+    beingAttacked(line){
+        //Rotate the circle coordinate in negetive angle of the rectangle
+        //to assume thta rectangle axis is parallel to the x axis to perform collision detection.
+        var unrotatedCircleX = Math.cos(-this.angle) * (line.x-this.x) - Math.sin(-this.angle) * (line.y-this.y) + this.x;
+        var unrotatedCircleY = Math.sin(-this.angle) * (line.x-this.x) + Math.cos(-this.angle) * (line.y-this.y) + this.y;
+        
+        //Calculate the x and y coordinate which is the closest point on rectangle from the centre of the circle.
+        //console.log(circle.x);
+        //console.log(unrotatedCircleX);
+        var closest = closestPoint(unrotatedCircleX, unrotatedCircleY, this);
+
+        var dist = closest.distance(new Vector2d(unrotatedCircleX, unrotatedCircleY));
+        if(dist < 0) return true; 
         else return false;
     }
 
@@ -289,8 +312,9 @@ class playerRect extends gameObject{
 }
 
 class playerCir extends gameObject{
-    constructor(x, y, color, screenWidth, screenHeight, radius){
-        super(x,y,color);
+    constructor(id, x, y, color, screenWidth, screenHeight, radius){
+        super(x, y, color);
+        this.id = id;
         this.tempColor = color;
         this.screenWidth = screenWidth;
         this.screenHeight = screenHeight;
@@ -344,10 +368,17 @@ class playerCir extends gameObject{
         }
     }
 
-    collisionFunc(shape){
+    collisionFunc(circle){
         //Collision == true if the distance from the centre of one circle 
         //to the centre of another circle is smaller than the sum of two circles' radius.
-        if(new Vector2d(shape.x, shape.y).distance(new Vector2d(this.x, this.y)) <= shape.radius + this.radius){
+        if(new Vector2d(circle.x, circle.y).distance(new Vector2d(this.x, this.y)) <= circle.radius + this.radius){
+            return true;
+        }
+        return false;
+    }
+
+    beingAttacked(line){
+        if(new Vector2d(this.x, this.y).distance(new Vector2d(line.x, line.y)) < this.radius){
             return true;
         }
         return false;
@@ -364,7 +395,7 @@ class playerCir extends gameObject{
     
         //Velocity of the difference between player and point.
      
-         velocityVector = new Vector2d(this.velocity.x - point.velocity.x, this.velocity.y - point.velocity.y);
+         velocityVector = new Vector2d(this.playerVelo.x - point.velocity.x, this.playerVelo.y - point.velocity.y);
     
         //l: length of velocityVector projected onto direction d.
         l = velocityVector.dot(d);
@@ -472,6 +503,25 @@ function closestPoint(circleX, circleY, rect){
     return closest;
 }
 
+//Check the orientation of three points(two segments).
+/**
+ * If the slope of (p1, p2) > slope of (p2, q1), the orientation will be clockwise (return 1).
+ * If slope(p1, p2) < slope(p2, q1), the orientation will be anti-clockwise (return 2).
+ * If slope are equal, two segments are collinear (return 0).
+ */
+function orientation(p1, p2, q1){
+    var slope1 = (p2.y - p1.y) / (p2.x - p1.x);
+    var slope2 = (q1.y - p2.y) / (q1.x - p2.x);
+    if(slope1 > slope2) return 1;
+    else if(slope1 < slope2) return 2;
+    return 0;
+}
+
+//Check if q1 is on segment(p1,p2)
+function onSegment(p1, p2, q1){
+
+}
+
 
 module.exports = {
     gamePoint:gamePoint,
@@ -480,3 +530,4 @@ module.exports = {
     playerRect:playerRect,
     playerCir:playerCir
 }; 
+

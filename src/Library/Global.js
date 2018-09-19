@@ -1,6 +1,6 @@
 module.exports = {
-    canvasWidth: 3000,
-    canvasHeight: 3000,
-    maxPoint: 1000,
+    canvasWidth: 5000,
+    canvasHeight: 5000,
+    maxPoint: 1500,
     gridGap: 50
 }

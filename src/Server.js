@@ -21,7 +21,10 @@ app.get('/', function(request, response) {
   });
 
   // Starts the server.
-server.listen(8888 , function() {
+  //To play with your friends in the same network(wi-fi), 
+  //add another string param after 8888 with your ip address (Can be found with ipconfig in cmd).
+  //URL will be "yourIP:8888"
+server.listen(8888, function() {
     console.log('Server running..');
   });
 
@@ -29,41 +32,54 @@ server.listen(8888 , function() {
 var Players = [];
 var PointArray = [];
 var sockets = [];
-var socketIndex = {};
-var idCounter = 0;
 initGameBoard();
 
 // Add the Web socket handlers. This section will be called when a user connects to the server.
 io.on('connection', function(socket){
     //Called when new player being connected.
     //Create new player.
+    var currentPlayer = {};
     socket.on('newPlayer', function(type, screenWidth, screenHeight){
+        let x = Math.floor(Math.random() * (Global.canvasWidth-1000));
+        let y = Math.floor(Math.random() * (Global.canvasHeight-1000));
         //Assigned new player
         if(type == "Circle"){
+            currentPlayer = new GameObject.playerCir(socket.id, x, y, "red", screenWidth, screenHeight, 50);
             // Players[socket.id] = new GameObject.playerRect(500, 500,"red", screenWidth, screenHeight, 20, 100);
-            Players.push(new GameObject.playerCir(500,500,"red", screenWidth, screenHeight, 50));
         } else if(type == "Rectangle"){
             // Players[socket.id] = new GameObject.playerRect(500, 500,"red", screenWidth, screenHeight, 20, 100);
-            Players.push(new GameObject.playerRect(500, 500,"red", screenWidth, screenHeight, 40, 120));
+            currentPlayer = new GameObject.playerRect(socket.id, x, y, "red", screenWidth, screenHeight, 40, 120);
         } else if(type == "Line"){
             // Players[socket.id] = new GameObject.playerLine(500,500,"red", screenWidth, screenHeight, 40);
-            Players.push(new GameObject.playerLine(500,500,"red", screenWidth, screenHeight, 100));
-        } 
+            currentPlayer = new GameObject.playerLine(socket.id, x, y, "red", screenWidth, screenHeight, 100);
+        }
+        if(currentPlayer != {}){
+            Players.push(currentPlayer);
+            //Store socket info for sending game update to individual player.
+            sockets.push(socket);
+            console.log("new player !");
+        }
 
-        //Make a record for the socket.id
-        socketIndex[socket.id] = idCounter;
-        idCounter++;
-
-        //Store socket info for sending game update to individual player.
-        sockets.push(socket);
     });
+
+    socket.on('disconnect', function () {
+        //Set player to the current user. 
+        //Empty object is to prevent from no existing player in connection.
+        var index = Players.indexOf(currentPlayer);
+        if (index != -1){
+            Players.splice(index, 1);
+            sockets.splice(socket, 1);
+        }
+        console.log("Player disconnected !")
+    });
+
     socket.on('mouseClick', function(click){
 
-        let index = socketIndex[socket.id];
+        //let index = socketIndex[socket.id];
 
         //Set player to the current user. 
         //Empty object is to prevent from no existing player in connection.
-        var player = Players[index] || {};
+        var player = currentPlayer;
 
         //Call different functions based on characters.
         if(player instanceof GameObject.playerRect){
@@ -89,9 +105,8 @@ io.on('connection', function(socket){
 
     //Handle player movement.
     socket.on('mouseMove', function(clientX, clientY){
-        let index = socketIndex[socket.id];
-        var player = Players[index] || {};
-        player.target = new Vector2d(clientX, clientY);          
+        var player = currentPlayer;
+        player.target = new Vector2d(clientX, clientY);       
     });
 });
 
@@ -216,7 +231,7 @@ function sendUpdate(){
             } else if(player instanceof GameObject.playerLine){
                 // playerInfo.push(player.ammo);
             } else if(player instanceof GameObject.playerRect){
-                // playerIndo.push(player.brick);
+                // playerInfo.push(player.brick);
             }
             //Emit update info to a specific player.
             sockets[Players.indexOf(player)].emit(
@@ -226,7 +241,7 @@ function sendUpdate(){
     }
 }
 
-//Update repeatedly.    
+//Update repeatedly.
 setInterval(gameLoop, 10);
 setInterval(sendUpdate, 10);
 
@@ -264,5 +279,4 @@ function randomColor() {
     }
     return color;
 }
-
 
