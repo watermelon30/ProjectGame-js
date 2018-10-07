@@ -1,5 +1,7 @@
 var Vector2d = require('./Vector.js');
 var Global = require('./Global.js');
+var dt =  1.0 / Global.fps //Delta time.
+
 
 //Base class of all objects in canvas.
 class gameObject{
@@ -15,9 +17,11 @@ class gamePoint extends gameObject{
     constructor(x, y, color, radius){
         super(x, y, color);
         this.radius = radius;
-        this.tempColor = this.color;
+        this.originalColor = this.color;
         this.velocity = new Vector2d(0,0);
         this.corner = 0;
+        //Check if the point has no where to go.
+        this.stuck = false;
     }
     inScreen(screenTL, screenBR){
         if(this.x >= screenTL.x - this.radius && this.x <= screenBR.x + this.radius){
@@ -29,61 +33,73 @@ class gamePoint extends gameObject{
     }
 
     newSpeed(player){
-            if(!(player instanceof playerLine)){
-                if(player.collisionFunc(this)){
-                    let b = player.bounce(this);
-                    this.velocity.x += 2 * b.x;
-                    this.velocity.y += 2 * b.y;
+        if(!(player instanceof playerLine)){
+            if(player.collisionCircle(new Vector2d(this.x, this.y), this.radius)){
+                //If the point touches a boundary and the shape, it is stuck.
+                if(this.corner) this.stuck = true;
+                let b = player.bounce(this);
+                //Point being crushed. Assign new position.
+                if(b.x == Infinity){
+                    let newPos = randomPointPosition(this.radius);
+                    this.x = newPos.x;
+                    this.y = newPos.y;
+                    return;
                 }
+                this.velocity.x += 2 * b.x;
+                this.velocity.y += 2 * b.y;
             }
+        }
     }
 
     newPos(){
-        //This is to prevent from all points stuck in a corner.
-        if(this.corner > 1){
-            this.velocity.x = Math.random() * 10;
-            this.velocity.y = Math.random() * 10;
-        }
-        this.corner = 0;
-        //Bounce off the when the point touches the boundary of canvas.
+        this.stuck = false;
+        if(this.velocity.x != 0 || this.velocity.y != 0){
+            //Prevent from all points stuck in a corner.
+            if(this.corner > 1){
+                this.velocity.x = Math.random() * 15;
+                this.velocity.y = Math.random() * 15;
+            }
+            this.corner = 0;
+            //Bounce off the when the point touches the boundary of canvas.
 
-        //Touch right side of boundary
-        if(this.x >= Global.canvasWidth - this.radius) {
-            this.x = Global.canvasWidth - this.radius;
-            this.velocity.x = -this.velocity.x;
-            this.corner++;
-        }
-        //Touch left side of boundary
-        else if(this.x <= this.radius) {
-            this.x = this.radius;
-            this.velocity.x = -this.velocity.x;
-            this.corner++;
-        }
-        //Touch top of the boundary. 
-        if(this.y <= this.radius){ 
-            this.y = this.radius;
-            this.velocity.y = -this.velocity.y;
-            this.corner++;
-        }
-        //Touch bottom of the boundary.
-        else if(this.y >=  Global.canvasHeight - this.radius) {
-            this.y =  Global.canvasHeight- this.radius;
-            this.velocity.y = -this.velocity.y;
-            this.corner++;
-        }
-        //Movement
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
+            //Touch right side of boundary
+            if(this.x >= Global.canvasWidth - this.radius) {
+                this.x = Global.canvasWidth - this.radius;
+                this.velocity.x = -this.velocity.x;
+                this.corner++;
+            }
+            //Touch left side of boundary
+            else if(this.x <= this.radius) {
+                this.x = this.radius;
+                this.velocity.x = -this.velocity.x;
+                this.corner++;
+            }
+            //Touch top of the boundary. 
+            if(this.y <= this.radius){ 
+                this.y = this.radius;
+                this.velocity.y = -this.velocity.y;
+                this.corner++;
+            }
+            //Touch bottom of the boundary.
+            else if(this.y >=  Global.canvasHeight - this.radius) {
+                this.y =  Global.canvasHeight- this.radius;
+                this.velocity.y = -this.velocity.y;
+                this.corner++;
+            }
+            //Movement
+            this.x += this.velocity.x;
+            this.y += this.velocity.y;
 
-        //Appy friction.
-        this.velocity.x = this.velocity.x * 0.985;
-        this.velocity.y = this.velocity.y * 0.985;
-        
-        //Force stop when velocity is small.
-        if(this.velocity.distance(new Vector2d(0,0)) < 0.2) {
-            this.velocity.x = 0;
-            this.velocity.y = 0;
-        }        
+            //Apply friction.
+            this.velocity.x = this.velocity.x * 0.985;
+            this.velocity.y = this.velocity.y * 0.985;
+            
+            //Force stop when velocity is small.
+            if(this.velocity.distance(new Vector2d(0,0)) < 0.2) {
+                this.velocity.x = 0;
+                this.velocity.y = 0;
+            }
+        }
     }
 }
 
@@ -107,12 +123,22 @@ class gameNeedle extends gameObject{
         return false;
     }
     newPos(){
-        this.endPoint = getLine(this.x, this.y, this.direction, this.length);
         this.x += this.direction.x;
         this.y += this.direction.y;
+        this.endPoint = getLine(this.x, this.y, this.direction, this.length);
+
         // if(this.x < screenTL.x || this.y > screenBR.x) {
         //     this.alive = false;
         // }
+    }
+
+    touchOthers(shapes){
+        if(shapes instanceof gameNeedle){
+            return shapes.touchLine(this);
+        }
+        else {
+            return shapes.collisionCircle(new Vector2d(this.x, this.y), 0)
+        }
     }
 
     isAlive(object){
@@ -122,12 +148,46 @@ class gameNeedle extends gameObject{
     }
 }
 
-class playerLine extends gameObject{
-    constructor(id, x, y, color, screenWidth, screenHeight, length){
-        super(x,y,color);
+//Life Amount for rectangle: 2000, Circle: 1500, Line: 1000
+class lifeBar{
+    constructor(lifeAmount){
+        this.life = lifeAmount;
+        this.length = this.life / 20;
+        this.maximum = lifeAmount;
+    }
+    beingAttacked(){
+        this.life--;
+        this.length = this.life/20;
+        if(this.life <= 0) return false;
+        else return true;
+    }
+    recover(){
+        if(this.life < this.maximum){
+            this.life++;
+            this.length += 0.5;
+        }
+    }
+}
+
+
+class gamePlayer{
+    constructor(id, x, y,color, screenHeight, screenWidth, team){
         this.id = id;
-        this.screenWidth = screenWidth;
+        this.x = x;
+        this.y = y;
+        this.color = color;
         this.screenHeight = screenHeight;
+        this.screenWidth = screenWidth;
+        this.team = team;
+        this.id = id;
+        this.originalColor = color;
+        this.target = new Vector2d(0,0);
+    }
+}
+
+class playerLine extends gamePlayer{
+    constructor(id, x, y, color, screenWidth, screenHeight, length, team){
+        super(id, x,y,color, screenHeight, screenWidth, team);
         this.length = length;
         this.direction = new Vector2d(1,1);
         this.needleArray = [];
@@ -135,10 +195,10 @@ class playerLine extends gameObject{
         this.velocity = new Vector2d(0,0);
         this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
         this.screenBR = new Vector2d(x + screenWidth/2, y + screenHeight/2);
-        this.target = new Vector2d(0,0);
         this.endPoint = new Vector2d(0,0);
         this.grid = new Vector2d(this.x % Global.gridGap, this.y % Global.gridGap);
         this.emit = false;
+        this.lifeBar = new lifeBar(1000);
     }
 
     inScreen(othersScreenTL, othersScreenBR){
@@ -154,10 +214,10 @@ class playerLine extends gameObject{
         if(this.velocity.distance(new Vector2d(0,0))!= 0){
             this.direction = Object.assign({},this.velocity);
         }
-        this.endPoint = getLine(this.x, this.y, this.direction, this.length);
         this.playerVelo = checkBound(this.x, this.y, this.velocity, 0);
         this.x += this.playerVelo.x;
         this.y += this.playerVelo.y;
+        this.endPoint = getLine(this.x, this.y, this.direction, this.length);
         this.screenTL.x = this.x - this.screenWidth/2;
         this.screenTL.y = this.y - this.screenHeight/2;
         this.screenBR.x = this.x + this.screenWidth/2;
@@ -174,18 +234,35 @@ class playerLine extends gameObject{
         this.needleArray.push(new gameNeedle(this.x, this.y,this.color,this.length,this.velocity,8));
     }
 
+    touchOthers(shapes){
+        return shapes.withLineIntersect(this);
+
+    }
+
+    touchLine(opposite){
+        let thisHead = new Vector2d(this.x, this.y),
+            oppHead = new Vector2d(opposite.x, opposite.y);
+        return lineIntersect(thisHead, this.endPoint, oppHead, opposite.endPoint);
+    }
+
+    shrink(){
+        if(this.length > 40){
+            this.length *= (1- Global.shrinkRate);
+            return true;
+        } else {
+            return this.lifeBar.beingAttacked();
+        }
+    }
+
     cleanNeedle(){
         //To ask: Necessary to clean needle out of canvas from the needleArray?
     };
 
 }
 
-class playerRect extends gameObject{
-    constructor(id, x, y, color, screenWidth, screenHeight, width, height){
-        super(x,y,color);
-        this.id = id;
-        this.screenWidth = screenWidth;
-        this.screenHeight = screenHeight;
+class playerRect extends gamePlayer{
+    constructor(id, x, y, color, screenWidth, screenHeight, width, height, team){
+        super(id, x,y, color, screenHeight, screenWidth, team);
         this.width = width;
         this.height = height;
         this.angle = 0;
@@ -194,7 +271,7 @@ class playerRect extends gameObject{
         this.playerVelo = new Vector2d(0,0);
         this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
         this.screenBR = new Vector2d(x + screenWidth/2, y + screenHeight/2);
-        this.target = new Vector2d(0,0);
+        this.lifeBar = new lifeBar(2000);
     }
     inScreen(othersScreenTL, othersScreenBR){
         //furthest: Furthest point from rectangle centre
@@ -218,37 +295,52 @@ class playerRect extends gameObject{
         this.screenBR.y = this.y + this.screenHeight/2;
     }
 
-    collisionFunc(circle){
+    //Collision detection with other circle.(Radius parameter for line player will be 0)
+    collisionCircle(circle_centre, radius){
 
-        //Rotate the circle coordinate in negetive angle of the rectangle
-        //to assume thta rectangle axis is parallel to the x axis to perform collision detection.
-        var unrotatedCircleX = Math.cos(-this.angle) * (circle.x-this.x) - Math.sin(-this.angle) * (circle.y-this.y) + this.x;
-        var unrotatedCircleY = Math.sin(-this.angle) * (circle.x-this.x) + Math.cos(-this.angle) * (circle.y-this.y) + this.y;
+        //Rotate the circle coordinate in negative angle of the rectangle
+        //to assume tht rectangle axis is parallel to the x axis to perform collision detection.
+        let unrotatedCircleCentre = rotatePoint(circle_centre, new Vector2d(this.x, this.y), -this.angle);
         
         //Calculate the x and y coordinate which is the closest point on rectangle from the centre of the circle.
         //console.log(circle.x);
-        //console.log(unrotatedCircleX);
-        var closest = closestPoint(unrotatedCircleX, unrotatedCircleY, this);
+        let closest = closestPoint(unrotatedCircleCentre.x, unrotatedCircleCentre.y, this);
 
-        var dist = closest.distance(new Vector2d(unrotatedCircleX, unrotatedCircleY));
-        if(dist < circle.radius) return true; 
+        let dist = closest.distance(unrotatedCircleCentre);
+        if(dist < radius) return true; 
         else return false;
     }
 
-    beingAttacked(line){
-        //Rotate the circle coordinate in negetive angle of the rectangle
-        //to assume thta rectangle axis is parallel to the x axis to perform collision detection.
-        var unrotatedCircleX = Math.cos(-this.angle) * (line.x-this.x) - Math.sin(-this.angle) * (line.y-this.y) + this.x;
-        var unrotatedCircleY = Math.sin(-this.angle) * (line.x-this.x) + Math.cos(-this.angle) * (line.y-this.y) + this.y;
-        
-        //Calculate the x and y coordinate which is the closest point on rectangle from the centre of the circle.
-        //console.log(circle.x);
-        //console.log(unrotatedCircleX);
-        var closest = closestPoint(unrotatedCircleX, unrotatedCircleY, this);
+    collisionRectangle(opposite){
+        let oppCentre = new Vector2d(opposite.x, opposite.y);
 
-        var dist = closest.distance(new Vector2d(unrotatedCircleX, unrotatedCircleY));
-        if(dist < 0) return true; 
-        else return false;
+        //Only check collision detection if the distance of two centres are close.
+        if(new Vector2d(this.x, this.y).distance(oppCentre) 
+           < Math.max(this.width, this.height) + Math.max(opposite.width, opposite.height)){
+            
+            let oppTL = new Vector2d(opposite.x - opposite.width/2, opposite.y - opposite.height/2),
+                oppTR = new Vector2d(opposite.x + opposite.width/2, opposite.y - opposite.height/2),
+                oppBL = new Vector2d(opposite.x - opposite.width/2, opposite.y + opposite.height/2),
+                oppBR = new Vector2d(opposite.x + opposite.width/2, opposite.y + opposite.height/2);
+            
+            //Rotate points of opposite rectangle in negative angle of this rectangle to
+            //simulate its position in this rectangle's user view.
+            let rotatedOppTL = rotatePoint(oppTL, oppCentre, opposite.angle),
+                rotatedOppTR = rotatePoint(oppTR, oppCentre, opposite.angle),
+                rotatedOppBL = rotatePoint(oppBL, oppCentre, opposite.angle),
+                rotatedOppBR = rotatePoint(oppBR, oppCentre, opposite.angle);
+            
+            //Check each edge of opposite rectangle if it is inside the other rectangle.
+            if(lineRectIntersect(this, rotatedOppTL, rotatedOppTR)) return true;
+            if(lineRectIntersect(this, rotatedOppTR, rotatedOppBR)) return true;
+            if(lineRectIntersect(this, rotatedOppBR, rotatedOppBL)) return true;
+            if(lineRectIntersect(this, rotatedOppBL, rotatedOppTL)) return true;
+        }
+        return false;
+    }
+
+    withLineIntersect(line){
+        return lineRectIntersect(this, new Vector2d(line.x, line.y), line.endPoint);
     }
 
     bounce(point){
@@ -261,9 +353,8 @@ class playerRect extends gameObject{
         c = 1;
 
         //unrotated: Rotate the point coordinate with -player.angle to get the position in unrotated rectangle's perspective.
-        unrotated = new Vector2d(0,0);
-        unrotated.x = Math.cos(-this.angle) * (point.x - this.x) - Math.sin(-this.angle) * (point.y - this.y) + this.x;
-        unrotated.y = Math.sin(-this.angle) * (point.x - this.x) + Math.cos(-this.angle) * (point.y - this.y) + this.y; 
+        unrotated = rotatePoint(point, new Vector2d(this.x, this.y), -this.angle);
+
         closest = closestPoint(unrotated.x, unrotated.y, this);
     
         //d: directional vector from the closest point of a player to point to the centre of the point 
@@ -271,9 +362,10 @@ class playerRect extends gameObject{
         d = new Vector2d(unrotated.x - closest.x, unrotated.y - closest.y).normalise();
     
         //Rotate the d back to rotated rectangle's prespective.
+
         d2 = new Vector2d(d.x, d.y);
-        d2.x = Math.cos(this.angle) * d.x - Math.sin(this.angle) * d.y;
-        d2.y = Math.sin(this.angle) * d.x + Math.cos(this.angle) * d.y;
+
+        d2 = rotatePoint(d, new Vector2d(0,0), this.angle);
     
         //rotateRadius: the radius from closest point on rectangle to the centre of rectangle.
         rotateRadius = new Vector2d(closest.x - this.x, closest.y - this.y);
@@ -306,27 +398,47 @@ class playerRect extends gameObject{
         if(l < 0) l = 0;
     
         velocityToPoint = new Vector2d(d2.x * l * c, d2.y * l * c);
+
+        //Condition where the points are crushed by the boundary and rectangle.
+        if(point.stuck){
+            if(  point.x + point.radius + velocityToPoint.x >= Global.canvasWidth 
+               ||point.x - point.radius + velocityToPoint.x <= 0
+               ||point.y + point.radius + velocityToPoint.y >= Global.canvasHeight
+               ||point.y - point.radius + velocityToPoint.y <= 0){
+                    console.log("boooom");
+                    return new Vector2d(Infinity,Infinity);
+            }
+        }
     
         return velocityToPoint;
     }
+
+    //Return false if player reaches minimum size.
+    shrink(){
+        if(this.width > 20 && this.height > 60){
+            this.width *= (1-Global.shrinkRate);
+            this.height *= (1-Global.shrinkRate);
+            return true;
+        }
+        return false;
+    }
+    bleeding(){
+        return this.lifeBar.beingAttacked();
+    }
 }
 
-class playerCir extends gameObject{
-    constructor(id, x, y, color, screenWidth, screenHeight, radius){
-        super(x, y, color);
-        this.id = id;
-        this.tempColor = color;
-        this.screenWidth = screenWidth;
-        this.screenHeight = screenHeight;
+class playerCir extends gamePlayer{
+    constructor(id, x, y, color, screenWidth, screenHeight, radius, team){
+        super(id,x,y,color, screenHeight, screenWidth, team);
         this.radius = radius;
         this.alpha = 1.0;
         this.playerVelo = new Vector2d(0,0);
         this.velocity = new Vector2d(0,0);
         this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
         this.screenBR =  new Vector2d(x + screenWidth/2, y + screenHeight/2);
-        this.target = new Vector2d(0,0);
         this.timer = 10;
         this.invisible = false;
+        this.lifeBar = new lifeBar(1500);
     }
 
     inScreen(othersScreenTL, othersScreenBR){
@@ -368,20 +480,37 @@ class playerCir extends gameObject{
         }
     }
 
-    collisionFunc(circle){
+    collisionCircle(centreVector,  radius){
         //Collision == true if the distance from the centre of one circle 
         //to the centre of another circle is smaller than the sum of two circles' radius.
-        if(new Vector2d(circle.x, circle.y).distance(new Vector2d(this.x, this.y)) <= circle.radius + this.radius){
+        if(new Vector2d(centreVector.x, centreVector.y).distance(new Vector2d(this.x, this.y)) <= radius + this.radius){
             return true;
         }
         return false;
     }
 
-    beingAttacked(line){
-        if(new Vector2d(this.x, this.y).distance(new Vector2d(line.x, line.y)) < this.radius){
-            return true;
+    //Find the intersection of line and circle
+    withLineIntersect(line){
+        var lineHead = new Vector2d(line.x, line.y);
+        var lineDist = new Vector2d(lineHead.x - line.endPoint.x, lineHead.y - line.endPoint.y);
+        var centreToLHead = new Vector2d(this.x - line.endPoint.x, this.y - line.endPoint.y);
+        var lineDistSquare = lineDist.dot(lineDist);
+
+        // Find the circle centre projected onto the line.   
+        // Assume that projection will lie on lineHead + t(lineHead - line.endPoint).
+        var t = (lineDist.dot(centreToLHead)) / lineDistSquare;
+        var projection = line.endPoint.add(lineDist.multiply(t));
+        //Check if projection lies inside the segment
+        if(onSegment(lineHead, line.endPoint, projection)){
+            if(projection.distance(new Vector2d(this.x, this.y)) <= this.radius){
+                return true;
+            }
         }
+        if(lineHead.distance(new Vector2d(this.x, this.y)) <= this.radius) return true;
+        if(line.endPoint.distance(new Vector2d(this.x, this.y)) <= this.radius) return true;
+        
         return false;
+
     }
 
     bounce(point){
@@ -410,11 +539,20 @@ class playerCir extends gameObject{
     
         return velocityToPoint;
     }
+
+    //Return false if player reaches minimum size.
     shrink(){
         if(this.radius > 30){
-            this.radius-= 0.01;
+            this.radius *= (1-Global.shrinkRate);
+            return true;
         }
+        return false;
     }
+
+    bleeding(){
+        return this.lifeBar.beingAttacked();
+    }
+
     unseen(){
         if(this.timer > 5){
             this.invisible = true;
@@ -425,18 +563,59 @@ class playerCir extends gameObject{
     }
 }
 
-//Get the endpoint of the character line.
+/**
+ * Rotate a point by angle degree around a centre point.
+ */
+function rotatePoint(point, centre, angle){
+    let rotatedX = Math.cos(angle) * (point.x-centre.x) - Math.sin(angle) * (point.y-centre.y) + centre.x;
+    let rotatedY = Math.sin(angle) * (point.x-centre.x) + Math.cos(angle) * (point.y-centre.y) + centre.y;
+    return new Vector2d(rotatedX, rotatedY);
+}
+
+/**
+ * Detect the collision of line and rectangle.
+ */
+function lineRectIntersect(rect, lineHead, lineTail){
+    //Original 4 points of rectangle.
+    let pointTL = new Vector2d(rect.x - rect.width/2, rect.y - rect.height/2),
+        pointTR = new Vector2d(rect.x + rect.width/2, rect.y - rect.height/2),
+        pointBL = new Vector2d(rect.x - rect.width/2, rect.y + rect.height/2),
+        pointBR = new Vector2d(rect.x + rect.width/2, rect.y + rect.height/2); 
+
+    //Here we rotate the line in negative angle of rectangle
+    //to simulate the position in rectangle user view.
+    let rotatedLineHead = rotatePoint(lineHead, new Vector2d(rect.x, rect.y), -rect.angle),
+        rotatedLineTail = rotatePoint(lineTail, new Vector2d(rect.x, rect.y), -rect.angle);
+
+    //Check intersection of 4 edges of rectangle and the rotated line segment.
+    if(lineIntersect(pointTL, pointTR, rotatedLineHead, rotatedLineTail)) return true;
+    if(lineIntersect(pointTL, pointBL, rotatedLineHead, rotatedLineTail)) return true;
+    if(lineIntersect(pointTR, pointBR, rotatedLineHead, rotatedLineTail)) return true;
+    if(lineIntersect(pointBL, pointBR, rotatedLineHead, rotatedLineTail)) return true;
+
+    //No intersection. Return false.
+    return false;
+}
+
+
+/**
+ * Given the head, direction and length of a line, find the endpoint of the line.
+ */
 function getLine(x, y, target, length){
     var dx, dy, d, endPoint;
     dx = target.x- x,
     dy = target.y- y;
     //Direction of the line.
     d = new Vector2d(target.x, target.y).normalise();
-    endPoint = new Vector2d(d.x*length, d.y*length);
+    endPoint = new Vector2d(x - d.x*length, y - d.y*length);
+    // endPoint.x = x - endPoint.x;
+    // endPoint.y = y - endPoint.y;
     return endPoint;
 }
 
-//Player movement when moving mouse cursor.
+/**
+ * Generate player movement speed depends on the mouse cursor.
+ */ 
 function playerMovement(targetX, targetY, screenWidth, screenHeight){
 
     let force = 0,
@@ -448,8 +627,8 @@ function playerMovement(targetX, targetY, screenWidth, screenHeight){
             //as the maximum of the cursor x and y coordinate.
         dist = new Vector2d(screenWidth/2, screenHeight/2).distance(new Vector2d(Math.min(targetX, min), Math.min(targetY,min)));
 
-    //This is to determine the speed according to the distance from middle of screen and mosue position. 
-    force = dist * 0.015;
+    //This is to determine the speed according to the distance from middle of screen and mouse position. 
+    force = dist * dt;
     if(Math.abs(dx) > min) dx = Math.sign(dx) * min;
     if(Math.abs(dy) > min) dy = Math.sign(dy) * min;
 
@@ -463,7 +642,10 @@ function playerMovement(targetX, targetY, screenWidth, screenHeight){
     return velocity;  
 }
 
-//Return the final speed of a player.
+/**
+ * Given the speed of the player, check collision with the boundary 
+ * of the canvas return and the final speed of a player.
+ */ 
 function checkBound(playerX, playerY, velocity, limit){
     //Move in x direction if screen bound will not touch canvas bound.
     let playerVelo = new Vector2d(0,0);
@@ -481,45 +663,100 @@ function checkBound(playerX, playerY, velocity, limit){
     return playerVelo;
 }
 
-
-function closestPoint(circleX, circleY, rect){
+/**
+ * Find the closest point from a point to a rectangle.
+ * If the point is inside the rectangle, return its own position.
+ */
+function closestPoint(pointX, pointY, rect){
     var closestX, closestY;
-    if(circleX < (rect.x - rect.width/2)){
+    if(pointX < (rect.x - rect.width/2)){
         closestX = rect.x - rect.width/2;
-    } else if(circleX > (rect.x + rect.width/2)){
+    } else if(pointX > (rect.x + rect.width/2)){
         closestX = rect.x + rect.width/2;
     } else{
-        closestX = circleX;
+        closestX = pointX;
     }
 
-    if(circleY < (rect.y - rect.height/2)){
+    if(pointY < (rect.y - rect.height/2)){
         closestY = rect.y - rect.height/2;
-    } else if(circleY > (rect.y + rect.height/2)){
+    } else if(pointY > (rect.y + rect.height/2)){
         closestY = rect.y + rect.height/2;
     } else{
-        closestY = circleY;
+        closestY = pointY;
     }
     var closest = new Vector2d(closestX, closestY);
     return closest;
 }
 
+/**
+ * Generate a random position for an object on the canvas
+ */
+function randomPointPosition(radius){
+    let x = Math.random() * (Global.canvasWidth - radius),
+        y = Math.random() * (Global.canvasHeight - radius);
+    return new Vector2d(x, y);
+}
+
+
 //Check the orientation of three points(two segments).
 /**
- * If the slope of (p1, p2) > slope of (p2, q1), the orientation will be clockwise (return 1).
+ * If the slope of segment (p1, p2) > slope of segment (p2, q1), the orientation p1->p2->q1 will be clockwise (return 1).
  * If slope(p1, p2) < slope(p2, q1), the orientation will be anti-clockwise (return 2).
  * If slope are equal, two segments are collinear (return 0).
  */
 function orientation(p1, p2, q1){
-    var slope1 = (p2.y - p1.y) / (p2.x - p1.x);
-    var slope2 = (q1.y - p2.y) / (q1.x - p2.x);
-    if(slope1 > slope2) return 1;
-    else if(slope1 < slope2) return 2;
-    return 0;
+    // let slope1 = (p2.y - p1.y) / (p2.x - p1.x);
+    // let slope2 = (q1.y - p2.y) / (q1.x - p2.x);
+    // if(slope1 > slope2) return 1;
+    // else if(slope1 < slope2) return 2;
+    // return 0;
+
+    let o = (p2.y - p1.y) * (q1.x - p2.x) - (p2.x - p1.x) * (q1.y - p2.y); 
+    if(o == 0) return 0;
+    if(o > 0) return 1;
+    if(o < 0) return 2;
 }
 
-//Check if q1 is on segment(p1,p2)
+/**
+ * Given that p1, p2, q1 are collinear, check if q1 is on segment(p1,p2).
+ */
 function onSegment(p1, p2, q1){
+    if(q1.x >= Math.min(p1.x, p2.x) && q1.x <= Math.max(p1.x, p2.x)
+    && q1.y >= Math.min(p1.y, p2.y) && q1.y <= Math.max(p1.y, p2.y)){
+        return true;
+    }
+    return false;
+}
 
+/**
+ * Check intersection for segment (p1, p2) and (q1, q2).
+ * Intersection happens in 2 cases:
+ * 1: orientations of one segment and two end points of another segment are different, and vice versa.
+ * 2: one point of a segment is inside another segment when two segments are collinear.
+ */
+function lineIntersect(p1, p2, q1, q2){
+    let op1 = orientation(p1, p2, q1),
+        op2 = orientation(p1, p2, q2),
+        oq1 = orientation(q1, q2, p1),
+        oq2 = orientation(q1, q2, p2);
+    
+    //Case 1
+    if(op1 != op2 && oq1 != oq2) return true;
+
+    //Case 2
+    //q1 lies on segment (p1, p2)
+    if(op1 == 0 && (p1, p2, q1)) return true;
+
+    //q2 lies on segment (p1, p2)
+    if(op2 == 0 && onSegment(p1, p2, q2)) return true;
+
+    //p1 lies on segment (q1, q2)
+    if(oq1 == 0 && onSegment(q1, q2, p1)) return true;
+
+    //p2 lies on segment (q1, q2)
+    if(oq2 == 0 && onSegment(q1, q2, p2)) return true;
+
+    return false;
 }
 
 

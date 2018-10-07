@@ -3,11 +3,16 @@ class Vector2d{
         this.x = x;
         this.y = y;
     }
-
+    
     add(vector){
-        this.x += vector.x;
-        this.y += vector.y;
+        return new Vector2d(this.x + vector.x, this.y + vector.y);
     }
+
+    multiply(scaler){
+        return new Vector2d(this.x * scaler, this.y * scaler);
+    }
+
+
     distance(vector){
         let dx = this.x - vector.x,
             dy = this.y - vector.y;

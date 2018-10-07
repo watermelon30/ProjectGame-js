@@ -9,11 +9,12 @@ var PointArray = [];
 
 var mouseClick = 0, //1 for left mouse key event, 2 for right mouse key event.
     lMousePress = 0, //1 when left mouse key being pressed.
-    rMousePress = 0; //1 when right mouse key being pressed.
+    rMousePress = 0; //1 when right mouse key being pressed. 
 
 var PlayersInScreen = [],
     PointsInScreen  = [],
     NeedlesInScreen = [],
+    Health = 0,
     Grid = 0,
     PlayerInfo = [];
     
@@ -29,28 +30,41 @@ window.onload = function(){
     canvas.style.display = 'none';
     var startBtn = document.getElementById('start');
     startBtn.onclick = function(){
-        let type = "";
-        if(document.getElementById('rectangle').checked){
-            type = document.getElementById('rectangle').value;
-        } else if(document.getElementById('circle').checked){
-            type = document.getElementById('circle').value;
-        } else if(document.getElementById('line').checked){
-            type = document.getElementById('line').value;
-        } else{
-            type = randomType();
-        }
+        let type = "",
+            teamNum = -1;
+        if(document.getElementById('rectangle').checked) type = document.getElementById('rectangle').value;
+        else if(document.getElementById('circle').checked) type = document.getElementById('circle').value;
+        else if(document.getElementById('line').checked) type = document.getElementById('line').value;
+        else type = randomType();
+        
+        if(document.getElementById('zero').checked) teamNum = 0;
+        else if(document.getElementById('one').checked) teamNum = 1;
+        else if(document.getElementById('two').checked) teamNum = 2;
+        else if(document.getElementById('three').checked) teamNum = 3;
+        else teamNum = -1; //Will be assigned by server if not chose.
+
         ctx.canvas.width  = window.innerWidth;
         ctx.canvas.height = window.innerHeight;
-        startGame(type);
+        socket.emit('checkTeam', teamNum);
+        startGame(type, teamNum);
     }
 }
 
-function startGame(type){
+
+
+function startGame(type, teamNum){
     menu.style.display = 'none';
     canvas.style.display = 'block';
+
+    socket.on('reassignTeam', function(desiredT, actualT){
+        //TODO: display change team message.
+        console.log("Change team...", desiredT, "to ", actualT);
+    });
     
     //Tell server to add new player.
     socket.emit('newPlayer', type, window.innerWidth, window.innerHeight);
+
+
 
     canvas.addEventListener('mousemove', function(e) {
         socket.emit('mouseMove', e.clientX, e.clientY);
@@ -83,9 +97,22 @@ function startGame(type){
         else mouseClick = 0;
         socket.emit('mouseClick', mouseClick);
     });
+
+    checkLatency();
     socketHandle();
     requestAnimationFrame(drawCanvas);
 
+}
+
+function checkLatency(){
+    //Emit the current time every 2 seconds. After server emits this time back we subtract it by
+    //the current time to get the latency.
+    setInterval(function() {
+        socket.emit('latency', Date.now(), function(startTime){
+            var latency = Date.now() - startTime;
+            console.log("Latency: " + latency);
+        });
+      }, 2000);
 }
 
 
@@ -104,14 +131,21 @@ function drawCanvas(){
     if(NeedlesInScreen.length > 0){
         drawNeedle(NeedlesInScreen);
     }
-    displayInfo(PlayerInfo,  window.innerWidth, window.innerHeight);
-
+    displayInfo(PlayerInfo, Health);
     requestAnimationFrame(drawCanvas);
 }
 
 
 //Handle socket response from server.
 function socketHandle(){
+    socket.on('healthUpdate', function(length){
+        Health = length;
+    });
+
+    socket.on('dead', function(){
+        Health = -100;
+    });
+
     socket.on('gameUpdate', function(playersInScreen, pointsInScreen, needlesInScreen, playerInfo, grid){
         //console.log("New update!");
         PlayersInScreen = playersInScreen;
@@ -139,7 +173,7 @@ function drawNeedle(needleArray){
         ctx.strokeStyle = "white";
         ctx.beginPath();
         ctx.moveTo(needle.x, needle.y);
-        ctx.lineTo(needle.x - needle.endPointX, needle.y - needle.endPointY);
+        ctx.lineTo(needle.endPointX, needle.endPointY);
         ctx.stroke();
         ctx.closePath();
     })
@@ -171,7 +205,7 @@ function drawLinePlayer(player){
     ctx.strokeStyle = player.color;
     ctx.beginPath();
     ctx.moveTo(player.x, player.y);
-    ctx.lineTo(player.x - player.endPointX, player.y - player.endPointY);
+    ctx.lineTo(player.endPointX, player.endPointY);
     ctx.stroke();
     ctx.closePath();
 }
@@ -182,14 +216,14 @@ function drawCirclePlayer(player){
     ctx.globalAlpha = player.alpha;
     ctx.fillStyle = player.color;
     //Draw the circle bigger than its radius to make more realistic collision.
-    ctx.arc(player.x, player.y, player.radius+5, 0, 2*Math.PI, false);
+    ctx.arc(player.x, player.y, player.radius, 0, 2*Math.PI, false);
     ctx.fill();
     ctx.closePath();
     ctx.globalAlpha = 1;
 }
 
 function drawBackground(grid){
-    //In grid param, grid[0] is grid_gap, grid[1] is first vertical line to draw, grid[2] is first parallel line.
+    //grid[0] is grid_gap, grid[1] is first vertical line to draw, grid[2] is first parallel line.
     ctx.lineWidth=1;
     ctx.strokeStyle = "#00ff00";
     ctx.globalAlpha=0.5;
@@ -207,12 +241,18 @@ function drawBackground(grid){
     ctx.closePath();
 }
 
-function displayInfo(playerInfo,  screenBRx, screenBRy){
+function displayInfo(playerInfo, healthAmount){
     ctx.font = "20px Comic Sans MS";
     ctx.fillStyle = "#00FF00";
-    ctx.fillText("Invisible  Mode: " + playerInfo[0] ,screenBRx * 0.8, screenBRy * 0.92);
+    ctx.fillText("Invisible  Mode: " + playerInfo[0] ,window.innerWidth * 0.8, window.innerHeight * 0.92);
+    if(healthAmount > 0){
+        ctx.fillText("Health Amount: " + healthAmount, window.innerWidth / 2 - 75,  window.innerHeight -50);
+    } else {
+        ctx.fillText("Dead", window.innerWidth / 2 - 75,  window.innerHeight -50);
+    }
 }
 
+//When user did not specify the player type.
 function randomType(){
     var random = Math.floor(Math.random() * 3) + 1;
     if(random == 1) return "Rectangle"; 
