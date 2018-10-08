@@ -11,6 +11,10 @@ var Vector2d = require('./Library/Vector.js');
 var Global = require('./Library/Global.js');
 var GameObject = require('./Library/GameObject.js');
 
+var Vector2d = require('./Library/Vector.js');
+var Global = require('./Library/Global.js');
+var GameObject = require('./Library/GameObject.js');
+
 
 app.set('port', 8888);  
 app.use('/Client', express.static(__dirname + '/Client'));
@@ -75,7 +79,7 @@ io.on('connection', function(socket){
             //Store socket info for sending game update to individual player.
             sockets.push(socket);
             playerNumInTeam[actualTeam]++;
-            socket.emit('healthUpdate', currentPlayer.lifeBar.length);
+            socket.emit('healthUpdate', currentPlayer.lifeBar.life);
             console.log("new player !");
             console.log(playerNumInTeam);
         }
@@ -117,12 +121,14 @@ io.on('connection', function(socket){
 
             // if(click == 1) player.emit();
             if(click == 1) player.emit = true;
+            else if(click == 2) player.ammoMode = !player.ammoMode;
             else player.emit = false;
-
         }
         if(player instanceof GameObject.playerCir){
             //Left mouse key: Invisible mode.
             if(click == 1) player.unseen();
+            //Enable energy emit.
+            if(click == 2) player.emit();
         }
     });
 
@@ -145,24 +151,54 @@ function gameLoop(){
     Players.forEach(player =>{
         player.newPos();
         if(player instanceof GameObject.playerCir){
-            // Skip collision detection if circle player is invisible.
-            if(!player.invisible){
-                PointArray.forEach(point=>{
-                    if(point.inScreen(player.screenTL, player.screenBR)){
+            player.energyArray.forEach(energy =>{
+                energy.newPos();
+            });
+            PointArray.forEach(point=>{
+                if(point.inScreen(player.screenTL, player.screenBR)){
+                    // Skip collision detection if circle player is invisible.
+                    if(player.invisible){
+                        //Check if circle player covers the point under its area.
+                        if(player.eatPoint(new Vector2d(point.x, point.y))){
+                            // Gain mass/lifeBar when a point is shrinking.
+                            if(point.shrink()){                     
+                                //TODO: BUG: Circle gets stuck when stretching around the boundary.
+                                //Update code for stretch function: 1 = lifeBar update, 2 = size update, 3 = update fail(Maximum reached).
+                                let updateCode = player.stretch();
+                                if(updateCode == 1){
+                                    sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.life);
+                                }
+                            }
+                        }
+                    } else {
                         point.newSpeed(player);
                     }
-                });
-            }
+                }
+            });
         } else if(player instanceof GameObject.playerRect){
             PointArray.forEach(point=>{
                 if(point.inScreen(player.screenTL, player.screenBR)){
+                    //TODO: allow rectangle to gain mass by itself (e.g. when points being crushed).
                     point.newSpeed(player);
                 }
             });
         } else if(player instanceof GameObject.playerLine){
             //Update each needle being emitted for each player.
+            if(player.emit){
+                sockets[Players.indexOf(player)].emit('ammoUpdate', player.ammo);
+            }
             player.needleArray.forEach(needle =>{
                 needle.newPos();
+            });
+            PointArray.forEach(point=>{
+                if(point.inScreen(player.screenTL, player.screenBR)){
+                    if(player.eatPoint(new Vector2d(point.x, point.y), point.radius)){
+                        if(point.shrink()){
+                            //Stretch line without bonus.
+                            player.stretch(false);
+                        }
+                    }
+                }
             });
         }
     });
@@ -181,6 +217,7 @@ function sendUpdate(){
             var inScreenPlayer = [],
                 inScreenPoint = [],
                 inScreenNeedle = [],
+                inScreenEnergy = [],
                 grid = [],
                 playerInfo = [];
 
@@ -198,34 +235,32 @@ function sendUpdate(){
                                         if(player1.collisionCircle(new Vector2d(player.x, player.y), player.radius)){
                                             if(!player1.shrink()){
                                                 if(player1.bleeding()){
-                                                    sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.length);
+                                                    sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
                                                 } else {/*TODO: Player dead*/}
                                             }
-                                            player1.color = "white";
-                                        } else player1.color = player1.originalColor;
-                                    } 
+                                        }
+                                    }
                                 }
-                            } else player1.color = player1.originalColor;
+                            }
                             //CIRCLE vs RECTANGLE
                             if(player instanceof GameObject.playerRect){
                                 if(!player1.invisible){
                                     if(player.collisionCircle(new Vector2d(player1.x, player1.y), player1.radius)){
                                         if(!player1.shrink()){
                                             if(player1.bleeding()){
-                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.length);
+                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
                                             } else {/*TODO: Player dead*/}
                                         }
                                     }
                                 }
                             }
-
                             //CIRCLE vs LINE
                             if(player instanceof GameObject.playerLine){
                                 if(player1.invisible != true){
                                     if(player.touchOthers(player1)){
                                         if(!player1.shrink()){
                                             if(player1.bleeding()){
-                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.length);
+                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
                                             } else {/*TODO: Player dead*/}
                                         }
                                         player1.color = "white";
@@ -243,6 +278,7 @@ function sendUpdate(){
                                 type: "Circle"
                             });
                         }
+
                         //Action if other players are type line.
                         if(player1 instanceof GameObject.playerLine){
                             //LINE vs CIRCLE
@@ -258,7 +294,7 @@ function sendUpdate(){
                                     if(player1.touchLine(player)){
                                         if(!player1.shrink()){
                                             if(player1.bleeding()){
-                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.length);
+                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
                                             } else {/*TODO: Player dead*/}
                                         }
                                     }
@@ -285,7 +321,7 @@ function sendUpdate(){
                                     if(player1.collisionRectangle(player)){
                                         if(!player1.shrink()){
                                             if(player1.bleeding()){
-                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.length);
+                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
                                             } else {
                                                 /*TODO: Player dead*/
                                             }
@@ -299,13 +335,11 @@ function sendUpdate(){
                                 if(player1.withLineIntersect(player)){ 
                                     if(!player1.shrink()){
                                         if(player1.bleeding()){
-                                            sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.length);
+                                            sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
                                         } else {/*TODO: Player dead*/}
                                     }
                                 }
                             }
-
-
                             inScreenPlayer.push({
                                 x: player1.x - player.screenTL.x,
                                 y: player1.y - player.screenTL.y,
@@ -321,18 +355,40 @@ function sendUpdate(){
                     if(player1 instanceof GameObject.playerLine){
                         player1.needleArray.forEach(needle =>{
                             if(needle.inScreen(player.screenTL, player.screenBR)){
-                                //TODO: Check line segment intersection.
-                                if(player1 != player){
-                                    if(player.invisible != true){
+                                if(player instanceof GameObject.playerLine){
+                                    if(player1 != player){
                                         if(needle.touchOthers(player)){
-                                            if(player.shrink()){
-                                                sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.length);
-                                                player.color = "white";
-                                            } else {
-                                                sockets[Players.indexOf(player)].emit('dead');
+                                            if(!player.shrink()){
+                                                if(player.bleeding()){
+                                                    sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.life);
+                                                } else {//TODO: dead action}
+                                                }
                                             }
-                                            console.log(player.lifeBar.length);
-                                        } else player.color = player.originalColor;
+                                        }
+                                    } 
+                                }
+                                else if(player instanceof GameObject.playerCir){
+                                    if(!player.invisible){
+                                        if(needle.touchOthers(player)){
+                                            if(!player.shrink()){
+                                                if(player.bleeding()){
+                                                    sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.life);
+                                                } else {
+                                                    //sockets[Players.indexOf(player)].emit('dead');
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                else if(player instanceof GameObject.playerRect){
+                                    if(needle.touchOthers(player)){
+                                        if(!player.shrink()){
+                                            if(player.bleeding()){
+                                                sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.life);
+                                            } else {
+                                                //sockets[Players.indexOf(player)].emit('dead');
+                                            }
+                                        }
                                     }
                                 }
                                 inScreenNeedle.push({
@@ -341,6 +397,36 @@ function sendUpdate(){
                                     endPointX: needle.endPoint.x - player.screenTL.x,
                                     endPointY: needle.endPoint.y - player.screenTL.y
                                 });
+                            }
+                        });
+                    }
+
+                    if(player1 instanceof GameObject.playerCir){
+                        player1.energyArray.forEach(energy=>{
+                            if(energy.inScreen(player.screenTL, player.screenBR)){
+                                if(player1 != player){
+                                    //Check collision with player. If true, absorbed will be set true;
+                                    energy.absorb(player);
+
+                                    if(energy.absorbed){
+                                        if(energy.shrink()){
+                                            //Enable bonus stretch mode for rect and line.
+                                            if(!(player instanceof GameObject.playerCir)){
+                                                player.stretch(true);
+                                                return;
+                                            }
+                                            player.stretch();
+                                        }
+                                    }
+                                }
+                                if(energy.radius > 0){
+                                    inScreenEnergy.push({
+                                        x: energy.x - player.screenTL.x,
+                                        y: energy.y - player.screenTL.y,
+                                        color: energy.color,
+                                        radius: energy.radius
+                                    });
+                                }
                             }
                         });
                     }
@@ -364,17 +450,24 @@ function sendUpdate(){
             // console.log(player.screenTL.x);
             grid.push(Global.gridGap - player.screenTL.x % Global.gridGap);
             grid.push(Global.gridGap - player.screenTL.y % Global.gridGap);
+
+            playerInfo.push(player.lifeBar.life); //[0]
             if(player instanceof GameObject.playerCir){
-                playerInfo.push(player.timer.toFixed(2));
+                playerInfo.push('C'); //[1] 
+                playerInfo.push(player.invisibleTimer.toFixed(2)); //[2]
             } else if(player instanceof GameObject.playerLine){
-                // playerInfo.push(player.ammo);
+                playerInfo.push('L'); //[1]
+                playerInfo.push(player.ammo); //[2]
+                playerInfo.push(player.ammoMode); //[3]
             } else if(player instanceof GameObject.playerRect){
-                // playerInfo.push(player.brick);
+                playerInfo.push('R'); //[1]
+                //playerInfo.push(player.brick);
             }
+            //playerInfo[0]: health amount, [1]: type code, [2].. special info for this type.
             //Emit update info to a specific player.
             //Compress function added to compress reduce network transfer workload. 
             sockets[Players.indexOf(player)].compress(true).emit(
-                'gameUpdate', inScreenPlayer, inScreenPoint, inScreenNeedle, playerInfo, grid
+                'gameUpdate', inScreenPlayer, inScreenPoint, inScreenNeedle, inScreenEnergy, playerInfo, grid
             );
         });
     }
@@ -387,7 +480,7 @@ setInterval(sendUpdate, (1 / Global.fps)*1000);
 
 //Initial board state.
 function initGameBoard(){
-    var x, y, radius = 10, color;
+    var x, y, color, radius = Global.pointRadius;
     for(let i=0; i< Global.maxPoint; i++){
         color = randomColor();
         x = Math.random() * (Global.canvasWidth - radius);

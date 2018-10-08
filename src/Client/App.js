@@ -14,8 +14,10 @@ var mouseClick = 0, //1 for left mouse key event, 2 for right mouse key event.
 var PlayersInScreen = [],
     PointsInScreen  = [],
     NeedlesInScreen = [],
+    EnergyInScreen = [],
     Health = 0,
     Grid = 0,
+    Ammo = 0, //Only used for line type.
     PlayerInfo = [];
     
 window.requestAnimationFrame = window.requestAnimationFrame
@@ -101,7 +103,6 @@ function startGame(type, teamNum){
     checkLatency();
     socketHandle();
     requestAnimationFrame(drawCanvas);
-
 }
 
 function checkLatency(){
@@ -125,6 +126,9 @@ function drawCanvas(){
     if(PointsInScreen.length > 0){
         drawPoint(PointsInScreen);
     }
+    if(EnergyInScreen.length > 0){
+        drawPoint(EnergyInScreen);
+    }
     if(PlayersInScreen.length > 0){
         drawPlayer(PlayersInScreen);
     }
@@ -142,15 +146,20 @@ function socketHandle(){
         Health = length;
     });
 
+    // socket.on('ammoUpdate', function(ammo){
+    //     Ammo = ammo;
+    // });
+
     socket.on('dead', function(){
         Health = -100;
     });
 
-    socket.on('gameUpdate', function(playersInScreen, pointsInScreen, needlesInScreen, playerInfo, grid){
+    socket.on('gameUpdate', function(playersInScreen, pointsInScreen, needlesInScreen, energyInScreen, playerInfo, grid){
         //console.log("New update!");
         PlayersInScreen = playersInScreen;
         PointsInScreen = pointsInScreen;
         NeedlesInScreen = needlesInScreen;
+        EnergyInScreen = energyInScreen;
         PlayerInfo = playerInfo;
         Grid = grid;
     });
@@ -244,18 +253,32 @@ function drawBackground(grid){
 function displayInfo(playerInfo, healthAmount){
     ctx.font = "20px Comic Sans MS";
     ctx.fillStyle = "#00FF00";
-    ctx.fillText("Invisible  Mode: " + playerInfo[0] ,window.innerWidth * 0.8, window.innerHeight * 0.92);
+
     if(healthAmount > 0){
-        ctx.fillText("Health Amount: " + healthAmount, window.innerWidth / 2 - 75,  window.innerHeight -50);
+        ctx.fillText("Health Amount: " + playerInfo[0], window.innerWidth / 2 - 75,  window.innerHeight*0.95);
     } else {
         ctx.fillText("Dead", window.innerWidth / 2 - 75,  window.innerHeight -50);
     }
+
+    if(playerInfo[1] == 'C'){
+        ctx.fillText("Invisible  Mode: " + playerInfo[2] ,window.innerWidth * 0.8, window.innerHeight * 0.95);
+    } else if(playerInfo[1] == 'L'){
+        ctx.fillText("Ammo: " + playerInfo[2], window.innerWidth * 0.8, window.innerHeight * 0.95);
+        if(playerInfo[3]){
+            ctx.fillText("Ammo Mode ",window.innerWidth * 0.1, window.innerHeight * 0.95);
+        } else {
+            ctx.fillText("Health Mode ",window.innerWidth * 0.1, window.innerHeight * 0.95);
+        }
+    } else if(playerInfo[1] == 'R'){
+        ctx.fillText("Brick: Haven't done", window.innerWidth * 0.1, window.innerHeight * 0.95);
+    }
+
 }
 
 //When user did not specify the player type.
 function randomType(){
     var random = Math.floor(Math.random() * 3) + 1;
     if(random == 1) return "Rectangle"; 
-    else if(random == 2) return "Line";
-    else return "Circle";
+    if(random == 2) return "Line";
+    return "Circle";
 }

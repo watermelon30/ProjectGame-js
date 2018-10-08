@@ -13,6 +13,26 @@ class gameObject{
     }
 }
 
+//Life Amount for rectangle: 2000, Circle: 1500, Line: 1000
+class lifeBar{
+    constructor(lifeAmount){
+        this.life = lifeAmount;
+        this.maximum = lifeAmount;
+    }
+    beingAttacked(){
+        this.life--;
+        if(this.life < 0) return false;
+        else return true;
+    }
+    recover(){
+        if(this.life < this.maximum){
+            this.life++;
+            return true;
+        }
+        return false;
+    }
+}
+
 class gamePoint extends gameObject{
     constructor(x, y, color, radius){
         super(x, y, color);
@@ -40,15 +60,21 @@ class gamePoint extends gameObject{
                 let b = player.bounce(this);
                 //Point being crushed. Assign new position.
                 if(b.x == Infinity){
-                    let newPos = randomPointPosition(this.radius);
-                    this.x = newPos.x;
-                    this.y = newPos.y;
-                    return;
+                    this.respawn();
+                    return false;
                 }
                 this.velocity.x += 2 * b.x;
                 this.velocity.y += 2 * b.y;
+                return true;
             }
         }
+    }
+
+    respawn(){
+        let newPos = randomPointPosition(Global.pointRadius);
+        this.x = newPos.x;
+        this.y = newPos.y;
+        this.radius = Global.pointRadius;
     }
 
     newPos(){
@@ -101,16 +127,27 @@ class gamePoint extends gameObject{
             }
         }
     }
+
+    //Only shrink if eaten by circle or line player.
+    shrink(){
+        if(this.radius > 5){
+            this.radius--;
+            return true;
+        } else {
+            this.respawn();
+            return false;
+        }
+    }
 }
 
 class gameNeedle extends gameObject{
     constructor(x, y, color, length, direction, speed){
         super(x, y, color);
         this.length = length - 50;
-        this.direction = direction.normalise();
+        this.direction = direction;
         this.direction.x *= speed;
         this.direction.y *= speed; 
-        this.endPoint = new Vector2d(0,0);
+        this.endPoint = getLine(this.x, this.y, this.direction, this.length);
         this.alive = true;
     }
 
@@ -126,19 +163,16 @@ class gameNeedle extends gameObject{
         this.x += this.direction.x;
         this.y += this.direction.y;
         this.endPoint = getLine(this.x, this.y, this.direction, this.length);
-
-        // if(this.x < screenTL.x || this.y > screenBR.x) {
-        //     this.alive = false;
-        // }
     }
 
     touchOthers(shapes){
-        if(shapes instanceof gameNeedle){
-            return shapes.touchLine(this);
-        }
-        else {
+        if(shapes instanceof playerCir){
             return shapes.collisionCircle(new Vector2d(this.x, this.y), 0)
         }
+        if(shapes instanceof playerRect){
+            return shapes.withLineIntersect(this);
+        }
+        return shapes.touchLine(this);
     }
 
     isAlive(object){
@@ -148,27 +182,96 @@ class gameNeedle extends gameObject{
     }
 }
 
-//Life Amount for rectangle: 2000, Circle: 1500, Line: 1000
-class lifeBar{
-    constructor(lifeAmount){
-        this.life = lifeAmount;
-        this.length = this.life / 20;
-        this.maximum = lifeAmount;
+class gameEnergy extends gameObject{
+    constructor(x, y, color, direction){
+        super(x, y, color);
+        this.radius = 10;
+        //Random direction in a range 0.8 - 1.2 times of original direction.
+        // this.direction.x =  direciton.x * (Math.random() * 0.4 + 0.8);
+        // this.direction.y =  direction.y * (Math.random() * 0.4 + 0.8);
+        this.direction = direction;
+        this.velocity = new Vector2d(this.direction.x * 5, this.direction.y * 5);
+        this.absorbed = false;
+        this.absorbingTime = 0;
     }
-    beingAttacked(){
-        this.life--;
-        this.length = this.life/20;
-        if(this.life <= 0) return false;
-        else return true;
+    inScreen(screenTL, screenBR){
+        if(this.x >= screenTL.x - this.radius && this.x <= screenBR.x + this.radius){
+            if(this.y >= screenTL.y - this.radius && this.y <= screenBR.y + this.radius){
+                return true;
+            }
+        }
+        return false;
     }
-    recover(){
-        if(this.life < this.maximum){
-            this.life++;
-            this.length += 0.5;
+
+    newPos(){
+        if(this.velocity.x != 0 || this.velocity.y != 0){
+            //Bounce off the when the point touches the boundary of canvas.
+
+            //Touch right side of boundary
+            if(this.x >= Global.canvasWidth - this.radius) {
+                this.x = Global.canvasWidth - this.radius;
+                this.velocity.x = -this.velocity.x;
+            }
+            //Touch left side of boundary
+            else if(this.x <= this.radius) {
+                this.x = this.radius;
+                this.velocity.x = -this.velocity.x;
+            }
+            //Touch top of the boundary. 
+            if(this.y <= this.radius){ 
+                this.y = this.radius;
+                this.velocity.y = -this.velocity.y;
+            }
+            //Touch bottom of the boundary.
+            else if(this.y >=  Global.canvasHeight - this.radius) {
+                this.y =  Global.canvasHeight- this.radius;
+                this.velocity.y = -this.velocity.y;
+            }
+            this.x += this.velocity.x;
+            this.y += this.velocity.y;
+
+            //Apply friction.
+            this.velocity.x *= 0.985;
+            this.velocity.y *= 0.985;
+            
+            //Force stop when velocity is small.
+            if(this.velocity.distance(new Vector2d(0,0)) < 0.2) {
+                this.velocity.x = 0;
+                this.velocity.y = 0;
+            }
         }
     }
-}
 
+    absorb(player){
+        if(!this.absorbed){
+            if(player instanceof playerLine){
+                if(player.withLineIntersect(this)){
+                    this.absorbed = true;
+                    return true;
+                }
+            }
+            else {
+                if(player.collisionCircle(new Vector2d(this.x, this.y), this.radius)){
+                    this.absorbed = true;
+                    return true;
+                }
+                return false;
+            }
+        }
+    }
+
+    //only will be called when absorbed == true
+    shrink(){
+        if(this.radius > 0){
+            this.radius -= 2;
+        }
+        if(this.absorbingTime < 20){
+            this.absorbingtime++;
+            return true;
+        }
+        return false;
+    }
+}
 
 class gamePlayer{
     constructor(id, x, y,color, screenHeight, screenWidth, team){
@@ -185,6 +288,180 @@ class gamePlayer{
     }
 }
 
+class playerCir extends gamePlayer{
+    constructor(id, x, y, color, screenWidth, screenHeight, radius, team){
+        super(id,x,y,color, screenHeight, screenWidth, team);
+        this.radius = radius;
+        this.alpha = 1.0;
+        this.playerVelo = new Vector2d(0,0);
+        this.velocity = new Vector2d(0,0);
+        this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
+        this.screenBR =  new Vector2d(x + screenWidth/2, y + screenHeight/2);
+        this.invisibleTimer = 10;
+        this.invisible = false;
+        this.lifeBar = new lifeBar(Global.circleLifeAmount);
+        this.energyArray = [];
+    }
+
+    inScreen(othersScreenTL, othersScreenBR){
+        if(this.x >= othersScreenTL.x - this.radius && this.x <= othersScreenBR.x + this.radius){
+            if(this.y >= othersScreenTL.y - this.radius && this.y <= othersScreenBR.y + this.radius){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    newPos(){
+        //PlayerVelo is the actual velocity of a player after boundary checking.
+        this.velocity = playerMovement(this.target.x, this.target.y, this.screenWidth, this.screenHeight);
+        this.playerVelo = checkBound(this.x, this.y, this.velocity, this.radius);
+        this.x += this.playerVelo.x;
+        this.y += this.playerVelo.y;
+        this.screenTL.x = this.x - this.screenWidth/2;
+        this.screenTL.y = this.y - this.screenHeight/2;
+        this.screenBR.x = this.x + this.screenWidth/2;
+        this.screenBR.y = this.y + this.screenHeight/2;
+
+        //Invisible mode
+        if(this.invisible == true){
+            this.alpha = 0.5;
+            //If Invisibletimer is 0, disable invisible mode.
+            if(this.invisibleTimer >= 0.02){
+                this.invisibleTimer-=0.02;
+            }
+            else {
+                this.invisible = false;
+                this.invisibleTimer = 0;
+            }
+        } else {
+            //Restart invisibleTimer
+            this.alpha = 1;
+            if(this.invisibleTimer < 14.99){
+                this.invisibleTimer += 0.01;
+            }
+        }
+    }
+
+    collisionCircle(centreVector,  radius){
+        //Collision == true if the distance from the centre of one circle 
+        //to the centre of another circle is smaller than the sum of two circles' radius.
+        if(centreVector.distance(new Vector2d(this.x, this.y)) <= radius + this.radius){
+            return true;
+        }
+        return false;
+    }
+
+    //When the circle player covers points under its area in invisible mode, points are eaten.
+    eatPoint(centreVector){
+        if(centreVector.distance(new Vector2d(this.x, this.y)) <= this.radius){
+            return true;
+        } 
+        return false;
+    }
+
+    //Find the intersection of line and circle
+    withLineIntersect(line){
+        var lineHead = new Vector2d(line.x, line.y);
+        var lineDist = new Vector2d(lineHead.x - line.endPoint.x, lineHead.y - line.endPoint.y);
+        var centreToLHead = new Vector2d(this.x - line.endPoint.x, this.y - line.endPoint.y);
+        var lineDistSquare = lineDist.dot(lineDist);
+
+        // Find the circle centre projected onto the line.   
+        // Assume that projection of the circle centre onto the line
+        // will be on line.endPoint + t(lineHead - line.endPoint).
+        var t = (lineDist.dot(centreToLHead)) / lineDistSquare;
+        var projection = line.endPoint.add(lineDist.multiply(t));
+        //Check if projection lies inside the segment
+        if(onSegment(lineHead, line.endPoint, projection)){
+            if(projection.distance(new Vector2d(this.x, this.y)) <= this.radius){
+                return true;
+            }
+        }
+        //Handle the case where the projection is not on the segment but one of 
+        //the segment end still in the circle.
+        if(lineHead.distance(new Vector2d(this.x, this.y)) <= this.radius) return true;
+        if(line.endPoint.distance(new Vector2d(this.x, this.y)) <= this.radius) return true;
+        
+        return false;
+
+    }
+
+    bounce(point){
+        var d, velocityVector, velocityToPoint, c, l;
+
+        //c: To control the force applied onto the point.
+        c = 0.8;
+    
+        //d: vector from centre of player to centre of point.
+        d = new Vector2d(point.x - this.x, point.y - this.y).normalise();
+    
+        //Velocity of the difference between player and point.
+     
+         velocityVector = new Vector2d(this.playerVelo.x - point.velocity.x, this.playerVelo.y - point.velocity.y);
+    
+        //l: length of velocityVector projected onto direction d.
+        l = velocityVector.dot(d);
+        
+        //Prevent situation where angle of velocityVector and d > 90,
+        //which makes the point going to the same direction of player.
+        if(l < 0) {
+            l = 0;
+        }
+    
+        velocityToPoint = new Vector2d(d.x * l * c, d.y * l * c);
+    
+        return velocityToPoint;
+    }
+
+    //Return false if player reaches minimum size.
+    shrink(){
+        if(this.radius > 30){
+            this.radius *= (1-Global.circleShrinkRate);
+            return true;
+        }
+        return false;
+    }
+
+    //Stretch the circle size.
+    stretch(){
+        if(this.lifeBar.recover()){
+            return 1;
+        }
+        if(this.radius < Global.circleMaxR){
+            this.radius *= (1+Global.circleStretchRate);
+            return 2;
+        }
+        return 3;
+    }
+
+    //Called when circle reaches minimum size.
+    bleeding(){
+        return this.lifeBar.beingAttacked();
+    }
+
+    //Function to enable invisible mode.
+    unseen(){
+        if(this.invisibleTimer > 5){
+            this.invisible = true;
+        }
+        else{
+            console.log("Cannot be invisible");
+        }
+    }
+
+    emit(){
+        if(this.radius > 30){
+            let direction = this.playerVelo.normalise(),
+                energyX = this.x + direction.x * this.radius,
+                energyY = this.y + direction.y * this.radius;
+
+            this.energyArray.push(new gameEnergy(energyX, energyY, this.color, direction));
+            this.radius--;    
+        }
+    }
+}
+
 class playerLine extends gamePlayer{
     constructor(id, x, y, color, screenWidth, screenHeight, length, team){
         super(id, x,y,color, screenHeight, screenWidth, team);
@@ -195,10 +472,14 @@ class playerLine extends gamePlayer{
         this.velocity = new Vector2d(0,0);
         this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
         this.screenBR = new Vector2d(x + screenWidth/2, y + screenHeight/2);
-        this.endPoint = new Vector2d(0,0);
+        this.endPoint = getLine(this.x, this.y, this.direction, this.length);
         this.grid = new Vector2d(this.x % Global.gridGap, this.y % Global.gridGap);
         this.emit = false;
-        this.lifeBar = new lifeBar(1000);
+        this.lifeBar = new lifeBar(Global.lineLifeAmount);
+        this.ammo = 100;
+
+        //Gathering ammo (0) OR increase size/life (1) when points eaten.
+        this.ammoMode = false;
     }
 
     inScreen(othersScreenTL, othersScreenBR){
@@ -209,6 +490,7 @@ class playerLine extends gamePlayer{
         }
         return false;
     }
+    //Return false when player tries to emit needle without ammo.
     newPos(){
         this.velocity = playerMovement(this.target.x, this.target.y, this.screenWidth, this.screenHeight);
         if(this.velocity.distance(new Vector2d(0,0))!= 0){
@@ -226,17 +508,27 @@ class playerLine extends gamePlayer{
         this.grid.y = this.y % Global.gridGap;
 
         if(this.emit == true){
-            this.needleArray.push(new gameNeedle(this.x, this.y,this.color,this.length,this.velocity,8));
+            //Emit needle when ammo != 0
+            if(this.ammo > 0){
+                this.needleArray.push(new gameNeedle(this.x, this.y,this.color,this.length,this.velocity.normalise(),8));
+                this.ammo--;
+            }
+            else return false;
         }
-    }
-
-    emit(){
-        this.needleArray.push(new gameNeedle(this.x, this.y,this.color,this.length,this.velocity,8));
+        return true;
     }
 
     touchOthers(shapes){
         return shapes.withLineIntersect(this);
+    }
 
+
+    eatPoint(pointCentre, radius){
+        let lineHead = new Vector2d(this.x, this.y);
+        if(lineHead.distance(pointCentre) <= radius){
+            return true;
+        }
+        return false;
     }
 
     touchLine(opposite){
@@ -247,11 +539,33 @@ class playerLine extends gamePlayer{
 
     shrink(){
         if(this.length > 40){
-            this.length *= (1- Global.shrinkRate);
+            this.length *= (1- Global.lineShrinkRate);
             return true;
         } else {
             return this.lifeBar.beingAttacked();
         }
+    }
+
+    //Bonus only comes when line absorbs energy from teammate circle.
+    stretch(bonus){
+        if(!this.ammoMode){
+            if(this.lifeBar.recover()){
+                if(bonus) this.lifeBar.recover();
+                return 1;
+            }
+            if(this.length < Global.lineMaxLength){
+                if(bonus) this.length *= (1 + Global.lineStretchRate * Global.energyBonusRate);
+                else this.length *= (1+Global.lineStretchRate);
+                return 2;
+            }
+        } else{
+            if(this.ammo < Global.lineMaxAmmo){
+                if(bonus) this.ammo += Global.energyBonusRate * Global.ammoReload;
+                else this.ammo += Global.ammoReload;
+                return 4;
+            }
+        }
+        return 3;
     }
 
     cleanNeedle(){
@@ -271,7 +585,7 @@ class playerRect extends gamePlayer{
         this.playerVelo = new Vector2d(0,0);
         this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
         this.screenBR = new Vector2d(x + screenWidth/2, y + screenHeight/2);
-        this.lifeBar = new lifeBar(2000);
+        this.lifeBar = new lifeBar(Global.rectangleLifeAmount);
     }
     inScreen(othersScreenTL, othersScreenBR){
         //furthest: Furthest point from rectangle centre
@@ -416,155 +730,41 @@ class playerRect extends gamePlayer{
     //Return false if player reaches minimum size.
     shrink(){
         if(this.width > 20 && this.height > 60){
-            this.width *= (1-Global.shrinkRate);
-            this.height *= (1-Global.shrinkRate);
+            this.width *= (1-Global.rectangleShrinkRate);
+            this.height *= (1-Global.rectangleShrinkRate);
             return true;
         }
         return false;
     }
-    bleeding(){
-        return this.lifeBar.beingAttacked();
-    }
-}
 
-class playerCir extends gamePlayer{
-    constructor(id, x, y, color, screenWidth, screenHeight, radius, team){
-        super(id,x,y,color, screenHeight, screenWidth, team);
-        this.radius = radius;
-        this.alpha = 1.0;
-        this.playerVelo = new Vector2d(0,0);
-        this.velocity = new Vector2d(0,0);
-        this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
-        this.screenBR =  new Vector2d(x + screenWidth/2, y + screenHeight/2);
-        this.timer = 10;
-        this.invisible = false;
-        this.lifeBar = new lifeBar(1500);
-    }
-
-    inScreen(othersScreenTL, othersScreenBR){
-        if(this.x >= othersScreenTL.x - this.radius && this.x <= othersScreenBR.x + this.radius){
-            if(this.y >= othersScreenTL.y - this.radius && this.y <= othersScreenBR.y + this.radius){
-                return true;
-            }
+    stretch(bonus){
+        if(this.lifeBar.recover()){
+            if(bonus) this.lifeBar.recover();
+            return 1;
         }
-        return false;
-    }
-
-    newPos(){
-        this.velocity = playerMovement(this.target.x, this.target.y, this.screenWidth, this.screenHeight);
-        this.playerVelo = checkBound(this.x, this.y, this.velocity, this.radius);
-        this.x += this.playerVelo.x;
-        this.y += this.playerVelo.y;
-        this.screenTL.x = this.x - this.screenWidth/2;
-        this.screenTL.y = this.y - this.screenHeight/2;
-        this.screenBR.x = this.x + this.screenWidth/2;
-        this.screenBR.y = this.y + this.screenHeight/2;
-
-        //Invisible mode
-        if(this.invisible == true){
-            this.alpha = 0.5;
-            //If timer is 0, disable invisible mode.
-            if(this.timer >= 0.02){
-                this.timer-=0.02;
+        if(this.width > Global.rectangleMaxW && this.height > Global.rectangleMaxH){
+            if(bonus){
+                this.width *= (1 + Global.rectangleStretchRate * Global.energyBonusRate);
+                this.height *= ( 1 + Global.rectangleStretchRate * Global.energyBonusRate);
             }
             else {
-                this.invisible = false;
-                this.timer = 0;
+                this.width *= (1 + Global.rectangleStretchRate);
+                this.height *= ( 1 + Global.rectangleStretchRate);
             }
-        } else {
-            //Restart timer
-            this.alpha = 1;
-            if(this.timer < 14.99){
-                this.timer += 0.01;
-            }
+            return 2;
         }
-    }
-
-    collisionCircle(centreVector,  radius){
-        //Collision == true if the distance from the centre of one circle 
-        //to the centre of another circle is smaller than the sum of two circles' radius.
-        if(new Vector2d(centreVector.x, centreVector.y).distance(new Vector2d(this.x, this.y)) <= radius + this.radius){
-            return true;
-        }
-        return false;
-    }
-
-    //Find the intersection of line and circle
-    withLineIntersect(line){
-        var lineHead = new Vector2d(line.x, line.y);
-        var lineDist = new Vector2d(lineHead.x - line.endPoint.x, lineHead.y - line.endPoint.y);
-        var centreToLHead = new Vector2d(this.x - line.endPoint.x, this.y - line.endPoint.y);
-        var lineDistSquare = lineDist.dot(lineDist);
-
-        // Find the circle centre projected onto the line.   
-        // Assume that projection will lie on lineHead + t(lineHead - line.endPoint).
-        var t = (lineDist.dot(centreToLHead)) / lineDistSquare;
-        var projection = line.endPoint.add(lineDist.multiply(t));
-        //Check if projection lies inside the segment
-        if(onSegment(lineHead, line.endPoint, projection)){
-            if(projection.distance(new Vector2d(this.x, this.y)) <= this.radius){
-                return true;
-            }
-        }
-        if(lineHead.distance(new Vector2d(this.x, this.y)) <= this.radius) return true;
-        if(line.endPoint.distance(new Vector2d(this.x, this.y)) <= this.radius) return true;
-        
-        return false;
-
-    }
-
-    bounce(point){
-        var d, velocityVector, velocityToPoint, c, l;
-
-        //c: To control the force applied onto the point.
-        c = 0.8;
-    
-        //d: vector from centre of player to centre of point.
-        d = new Vector2d(point.x - this.x, point.y - this.y).normalise();
-    
-        //Velocity of the difference between player and point.
-     
-         velocityVector = new Vector2d(this.playerVelo.x - point.velocity.x, this.playerVelo.y - point.velocity.y);
-    
-        //l: length of velocityVector projected onto direction d.
-        l = velocityVector.dot(d);
-        
-        //Prevent situation where angle of velocityVector and d > 90,
-        //which makes the point going to the same direction of player.
-        if(l < 0) {
-            l = 0;
-        }
-    
-        velocityToPoint = new Vector2d(d.x * l * c, d.y * l * c);
-    
-        return velocityToPoint;
-    }
-
-    //Return false if player reaches minimum size.
-    shrink(){
-        if(this.radius > 30){
-            this.radius *= (1-Global.shrinkRate);
-            return true;
-        }
-        return false;
+        return 3;
     }
 
     bleeding(){
         return this.lifeBar.beingAttacked();
     }
-
-    unseen(){
-        if(this.timer > 5){
-            this.invisible = true;
-        }
-        else{
-            console.log("Cannot be invisible");
-        }
-    }
 }
 
+
+
 /**
- * Rotate a point by angle degree around a centre point.
+ * Rotate a point by angle(radius) around a centre point.
  */
 function rotatePoint(point, centre, angle){
     let rotatedX = Math.cos(angle) * (point.x-centre.x) - Math.sin(angle) * (point.y-centre.y) + centre.x;
