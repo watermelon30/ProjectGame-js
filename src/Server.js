@@ -24,7 +24,7 @@ app.get('/', function(request, response) {
     response.sendFile(path.join(__dirname, '/Index.html'));
   });
 
-  // Starts the server.
+  //Starts the server.
   //To play with your friends in the same network(wi-fi), 
   //add another string param after 8888 with your ip address (Can be found with ipconfig in cmd).
   //URL will be "yourIP:8888"
@@ -37,6 +37,7 @@ var Players = [];
 var playerNumInTeam = [0,0,0,0];
 var PointArray = []; //Keep track of number of player in each team.
 var sockets = [];
+var PlayerLifeCounters = [];
 initGameBoard();
 
 
@@ -62,22 +63,24 @@ io.on('connection', function(socket){
         }
     });
 
-    socket.on('newPlayer', function(type, screenWidth, screenHeight){
-        //Random assign initial position of the player depends on team.
+    socket.on('newPlayer', function(type, screenWidth, screenHeight, startTime){
+        //Assign initial position and team color to the new player.
         let position = initPosition(actualTeam);
+        let color = teamColor(actualTeam);
 
         //Assigned new player
         if(type == "Circle"){
-            currentPlayer = new GameObject.playerCir(socket.id, position.x, position.y, "red", screenWidth, screenHeight, 50, actualTeam);
+            currentPlayer = new GameObject.playerCir(socket.id, position.x, position.y, color, screenWidth, screenHeight, 50, actualTeam);
         } else if(type == "Rectangle"){
-            currentPlayer = new GameObject.playerRect(socket.id, position.x, position.y, "red", screenWidth, screenHeight, 40, 120, actualTeam);
+            currentPlayer = new GameObject.playerRect(socket.id, position.x, position.y, color, screenWidth, screenHeight, 40, 120, actualTeam);
         } else if(type == "Line"){
-            currentPlayer = new GameObject.playerLine(socket.id, position.x, position.y, "red", screenWidth, screenHeight, 100, actualTeam);
+            currentPlayer = new GameObject.playerLine(socket.id, position.x, position.y, color, screenWidth, screenHeight, 100, actualTeam);
         }
         if(currentPlayer != {}){
             Players.push(currentPlayer);
             //Store socket info for sending game update to individual player.
             sockets.push(socket);
+            PlayerLifeCounters.push(startTime);
             playerNumInTeam[actualTeam]++;
             socket.emit('healthUpdate', currentPlayer.lifeBar.life);
             console.log("new player !");
@@ -95,6 +98,8 @@ io.on('connection', function(socket){
             Players.splice(index, 1);
             // sockets.splice(socket, 1);
             sockets.splice(index, 1);
+
+            PlayerLifeCounters.splice(index,1);
             socket.disconnect();
         }
         console.log("Player disconnected !");
@@ -144,6 +149,10 @@ io.on('connection', function(socket){
     socket.on('latency', function(startTime, callback){
         callback(startTime);
     });
+
+    socket.on('lifeCounter', function(startTime){
+
+    })
 });
 
 //gameLoop(): Update game state.
@@ -161,7 +170,7 @@ function gameLoop(){
                         //Check if circle player covers the point under its area.
                         if(player.eatPoint(new Vector2d(point.x, point.y))){
                             // Gain mass/lifeBar when a point is shrinking.
-                            if(point.shrink()){                     
+                            if(point.shrink()){
                                 //TODO: BUG: Circle gets stuck when stretching around the boundary.
                                 //Update code for stretch function: 1 = lifeBar update, 2 = size update, 3 = update fail(Maximum reached).
                                 let updateCode = player.stretch();
@@ -178,8 +187,12 @@ function gameLoop(){
         } else if(player instanceof GameObject.playerRect){
             PointArray.forEach(point=>{
                 if(point.inScreen(player.screenTL, player.screenBR)){
-                    //TODO: allow rectangle to gain mass by itself (e.g. when points being crushed).
-                    point.newSpeed(player);
+                    //If a point is crushed by rectangle, gain liny mass to rectangle.
+                    if(!point.newSpeed(player)){
+                        for(let i=0; i<5;i++){
+                            player.stretch(0.3);
+                        }
+                    }
                 }
             });
         } else if(player instanceof GameObject.playerLine){
@@ -195,7 +208,7 @@ function gameLoop(){
                     if(player.eatPoint(new Vector2d(point.x, point.y), point.radius)){
                         if(point.shrink()){
                             //Stretch line without bonus.
-                            player.stretch(false);
+                            player.stretch(1);
                         }
                     }
                 }
@@ -221,53 +234,42 @@ function sendUpdate(){
                 grid = [],
                 playerInfo = [];
 
-            //Comparing each player with other players.
+                //Check players interaction within the current screen.
                 Players.forEach(player1=>{
+
                     //Check if other players are in the current player's screen.
                     if(player1.inScreen(player.screenTL, player.screenBR)){
 
                         //Action if other players are type Circle.
                         if(player1 instanceof GameObject.playerCir){
-                            //CIRCLE vs CIRCLE
-                            if(player instanceof GameObject.playerCir){
-                                if(player1 != player){
+                            //Collision detection only with enemy.
+                            if(player1.team != player.team){
+                                //CIRCLE vs CIRCLE
+                                if(player instanceof GameObject.playerCir){
                                     if(!(player1.invisible == true || player.invisible == true)){
                                         if(player1.collisionCircle(new Vector2d(player.x, player.y), player.radius)){
-                                            if(!player1.shrink()){
-                                                if(player1.bleeding()){
-                                                    sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
-                                                } else {/*TODO: Player dead*/}
-                                            }
+                                            shrinkPlayer('C', player1, 0.5);
+                                            shrinkPlayer('C', player, 0.5);
+                                        }
+                                    }
+                                }
+                                //CIRCLE vs RECTANGLE
+                                if(player instanceof GameObject.playerRect){
+                                    if(!player1.invisible){
+                                        if(player.collisionCircle(new Vector2d(player1.x, player1.y), player1.radius)){
+                                            shrinkPlayer('C', player1, 1);
+                                        }
+                                    }
+                                }
+                                //CIRCLE vs LINE
+                                if(player instanceof GameObject.playerLine){
+                                    if(!player1.invisible){
+                                        if(player.touchOthers(player1)){
+                                            shrinkPlayer('C', player1, 1);
                                         }
                                     }
                                 }
                             }
-                            //CIRCLE vs RECTANGLE
-                            if(player instanceof GameObject.playerRect){
-                                if(!player1.invisible){
-                                    if(player.collisionCircle(new Vector2d(player1.x, player1.y), player1.radius)){
-                                        if(!player1.shrink()){
-                                            if(player1.bleeding()){
-                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
-                                            } else {/*TODO: Player dead*/}
-                                        }
-                                    }
-                                }
-                            }
-                            //CIRCLE vs LINE
-                            if(player instanceof GameObject.playerLine){
-                                if(player1.invisible != true){
-                                    if(player.touchOthers(player1)){
-                                        if(!player1.shrink()){
-                                            if(player1.bleeding()){
-                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
-                                            } else {/*TODO: Player dead*/}
-                                        }
-                                        player1.color = "white";
-                                    } else player1.color = player1.originalColor;
-                                }
-                            } else player1.color = player1.originalColor;
-
                             //Add all visible players to current player screen.
                             inScreenPlayer.push({
                                 x: player1.x - player.screenTL.x,
@@ -279,64 +281,20 @@ function sendUpdate(){
                             });
                         }
 
-                        //Action if other players are type line.
-                        if(player1 instanceof GameObject.playerLine){
-                            //LINE vs CIRCLE
-                            if(player instanceof GameObject.playerCir){}
-
-                            //LINE vs RECTANGLE
-                            if(player instanceof GameObject.playerRect){
-                            }
-
-                            //LINE vs LINE
-                            if(player instanceof GameObject.playerLine){
-                                if(player1 != player){
-                                    if(player1.touchLine(player)){
-                                        if(!player1.shrink()){
-                                            if(player1.bleeding()){
-                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
-                                            } else {/*TODO: Player dead*/}
-                                        }
-                                    }
-                                }
-                            }
-
-                            inScreenPlayer.push({
-                                x: player1.x - player.screenTL.x,
-                                y: player1.y - player.screenTL.y,
-                                color: player1.color,
-                                endPointX: player1.endPoint.x - player.screenTL.x,
-                                endPointY: player1.endPoint.y - player.screenTL.y,
-                                type: "Line"
-                            });
-                        }
                         //Action if other players are type rectangle
                         if(player1 instanceof GameObject.playerRect){
-                            //RECTANGLE vs CIRCLE
-                            if(player instanceof GameObject.playerCir){}
-                            
-                            //RECTANGLE vs RECTANGLE
-                            if(player instanceof GameObject.playerRect){
-                                if(player1 != player){
+                            if(player1.team != player.team){
+                                //RECTANGLE vs RECTANGLE
+                                if(player instanceof GameObject.playerRect){
                                     if(player1.collisionRectangle(player)){
-                                        if(!player1.shrink()){
-                                            if(player1.bleeding()){
-                                                sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
-                                            } else {
-                                                /*TODO: Player dead*/
-                                            }
-                                        }
+                                        shrinkPlayer('R', player1, 0.5);
+                                        shrinkPlayer('R', player, 0.5);
                                     }
                                 }
-                                
-                            }
-                            //RECTANGLE vs LINE
-                            if(player instanceof GameObject.playerLine){
-                                if(player1.withLineIntersect(player)){ 
-                                    if(!player1.shrink()){
-                                        if(player1.bleeding()){
-                                            sockets[Players.indexOf(player1)].emit('healthUpdate', player1.lifeBar.life);
-                                        } else {/*TODO: Player dead*/}
+                                //RECTANGLE vs LINE
+                                if(player instanceof GameObject.playerLine){
+                                    if(player1.withLineIntersect(player)){
+                                        shrinkPlayer('L', player, 1);
                                     }
                                 }
                             }
@@ -350,44 +308,51 @@ function sendUpdate(){
                                 type: "Rectangle"
                             });
                         }
+                        //Action if other players are type line.
+                        if(player1 instanceof GameObject.playerLine){
+                            if(player1.team != player.team){
+                                //LINE vs LINE
+                                if(player instanceof GameObject.playerLine){
+                                    if(player1.touchLine(player)){
+                                        shrinkPlayer('L', player1, 0.5);
+                                        shrinkPlayer('L', player, 0.5);
+                                    }
+                                }
+                            }
+                            inScreenPlayer.push({
+                                x: player1.x - player.screenTL.x,
+                                y: player1.y - player.screenTL.y,
+                                color: player1.color,
+                                endPointX: player1.endPoint.x - player.screenTL.x,
+                                endPointY: player1.endPoint.y - player.screenTL.y,
+                                type: "Line"
+                            });
+                        }
                     }
                     //Check if any needle exists in current player's screen. 
                     if(player1 instanceof GameObject.playerLine){
+                        let needleToClean = [];
                         player1.needleArray.forEach(needle =>{
                             if(needle.inScreen(player.screenTL, player.screenBR)){
-                                if(player instanceof GameObject.playerLine){
-                                    if(player1 != player){
+                                if(player1.team != player.team){
+                                    //NEEDLE vs LINE
+                                    if(player instanceof GameObject.playerLine){
                                         if(needle.touchOthers(player)){
-                                            if(!player.shrink()){
-                                                if(player.bleeding()){
-                                                    sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.life);
-                                                } else {//TODO: dead action}
-                                                }
-                                            }
+                                            shrinkPlayer('L', player, 1);
                                         }
-                                    } 
-                                }
-                                else if(player instanceof GameObject.playerCir){
-                                    if(!player.invisible){
-                                        if(needle.touchOthers(player)){
-                                            if(!player.shrink()){
-                                                if(player.bleeding()){
-                                                    sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.life);
-                                                } else {
-                                                    //sockets[Players.indexOf(player)].emit('dead');
-                                                }
+                                    }
+                                    //NEEDLE vs CIRCLE
+                                    else if(player instanceof GameObject.playerCir){
+                                        if(!player.invisible){
+                                            if(needle.touchOthers(player)){
+                                                shrinkPlayer('C', player, 1);
                                             }
                                         }
                                     }
-                                }
-                                else if(player instanceof GameObject.playerRect){
-                                    if(needle.touchOthers(player)){
-                                        if(!player.shrink()){
-                                            if(player.bleeding()){
-                                                sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.life);
-                                            } else {
-                                                //sockets[Players.indexOf(player)].emit('dead');
-                                            }
+                                    //NEEDLE vs RECTANGLE
+                                    else if(player instanceof GameObject.playerRect){
+                                        if(needle.touchOthers(player)){
+                                            shrinkPlayer('R', player1, 1);
                                         }
                                     }
                                 }
@@ -397,25 +362,58 @@ function sendUpdate(){
                                     endPointX: needle.endPoint.x - player.screenTL.x,
                                     endPointY: needle.endPoint.y - player.screenTL.y
                                 });
+                                return;
+                            }
+                            // Delete needle from player array that is far out of game area.
+                            else if(!needle.inScreen(new Vector2d(-300,-300), new Vector2d(Global.canvasWidth+300, Global.canvasHeight+300))){
+                                let indexToDelete = player1.needleArray.indexOf(needle);
+                                needleToClean.push(indexToDelete);
                             }
                         });
+                        player1.cleanNeedle(needleToClean); 
+                        //DEBUG: console.log(player1.needleArray.length);
                     }
 
+                    //Check if any energy exists in current player's screen. 
                     if(player1 instanceof GameObject.playerCir){
+                        let energyToClean = [];
                         player1.energyArray.forEach(energy=>{
-                            if(energy.inScreen(player.screenTL, player.screenBR)){
-                                if(player1 != player){
-                                    //Check collision with player. If true, absorbed will be set true;
-                                    energy.absorb(player);
+                            // Delete needle that is far out of game area.
+                            if(energy.radius < 0){
+                                let indexToDelete = player1.energyArray.indexOf(energy);
+                                    energyToClean.push(indexToDelete);
+                                }
 
-                                    if(energy.absorbed){
-                                        if(energy.shrink()){
-                                            //Enable bonus stretch mode for rect and line.
-                                            if(!(player instanceof GameObject.playerCir)){
-                                                player.stretch(true);
-                                                return;
+                            //Check if energy is in the player screen.
+                            else if(energy.inScreen(player.screenTL, player.screenBR)){
+
+                                //Energy becomes toxic to enemy.
+                                if(player1.team != player.team){
+                                    energy.absorb(player);
+                                    if(player instanceof GameObject.playerCir){
+                                        shrinkPlayer('C', player, 1);
+                                    }
+                                    if(player instanceof GameObject.playerRect){
+                                        shrinkPlayer('R', player, 1);
+                                    }
+                                    if(player instanceof GameObject.playerLine){
+                                        shrinkPlayer('L', player, 1);
+                                    }
+                                }
+                                else{
+                                    if(player1 != player){
+                                        //Check collision with player. If true, absorbed will be set true;
+                                        energy.absorb(player);
+    
+                                        if(energy.absorbed){
+                                            if(energy.shrink()){
+                                                //Enable bonus stretch mode for rect and line.
+                                                if(!(player instanceof GameObject.playerCir)){
+                                                    player.stretch(Global.energyBonusRate);
+                                                    return;
+                                                }
+                                                player.stretch();
                                             }
-                                            player.stretch();
                                         }
                                     }
                                 }
@@ -429,12 +427,12 @@ function sendUpdate(){
                                 }
                             }
                         });
+                        player1.cleanEnergy(energyToClean); 
                     }
                 });
             //Check any points existing in current player's screen.
             PointArray.forEach(point =>{
                 if(point.inScreen(player.screenTL, player.screenBR)){
-
                     inScreenPoint.push({
                         x: point.x - player.screenTL.x,
                         y: point.y - player.screenTL.y,
@@ -444,7 +442,9 @@ function sendUpdate(){
                 }
             });
             
+            //TODO: gridGap could be sent in a non-repeated emittion.
             grid.push(Global.gridGap);
+
             // grid.push(player.grid.x - player.screenTL.x);
             // grid.push(player.grid.y - player.screenTL.y);
             // console.log(player.screenTL.x);
@@ -457,7 +457,9 @@ function sendUpdate(){
                 playerInfo.push(player.invisibleTimer.toFixed(2)); //[2]
             } else if(player instanceof GameObject.playerLine){
                 playerInfo.push('L'); //[1]
+                //TODO: Ammo amount could be sent only when update.
                 playerInfo.push(player.ammo); //[2]
+                
                 playerInfo.push(player.ammoMode); //[3]
             } else if(player instanceof GameObject.playerRect){
                 playerInfo.push('R'); //[1]
@@ -548,6 +550,21 @@ function getAllIndexes(arr, val) {
     return index;
 }
 
+function shrinkPlayer(playerType, player, amount){
+    if(!player.shrink(amount)){
+        if(player.bleeding()){
+            sockets[Players.indexOf(player)].emit('healthUpdate', player.lifeBar.life);
+        } else {
+            let index = Players.indexOf(player);
+            if(playerType == 'C') player.radius = 0;
+            else if(playerType == 'L') player.length = 0;
+            else if(playerType == 'R') player.width = 0;
+            sockets[index].emit('dead', PlayerLifeCounters[index]);
+        }
+    }
+}
+
+
 
 function initPosition(teamNum){
     var x, y,boundDist = 500, range = 3000, xRange, yRange;    
@@ -577,5 +594,24 @@ function initPosition(teamNum){
     x = Math.floor(Math.random() * (xRange.y - xRange.x)) + xRange.x;
     y = Math.floor(Math.random() * (yRange.y - yRange.x)) + yRange.x;
     return new Vector2d(x, y);
+}
+
+function teamColor(teamNum){
+    if(teamNum == 0){
+        return "red";
+    }
+    //Team 1: random position in top right corner.
+    else if(teamNum == 1){
+        return "yellow";
+    }
+    //Team 3: random position in bottom left corner.
+    else if(teamNum == 2){
+        return "lime";
+
+    }
+    //Team 4: random position in bottom right corner.
+    else if(teamNum == 3){
+        return "cyan";
+    }
 }
 

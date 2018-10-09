@@ -20,7 +20,7 @@ module.exports = {
     ammoReload: 1,
 
     rectangleLifeAmount: 500,
-    rectangleStretchRate: 0.005,
+    rectangleStretchRate: 0.002,
     rectangleShrinkRate: 0.003,
     rectangleMaxW: 200,
     rectangleMaxH: 600,

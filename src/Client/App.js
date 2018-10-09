@@ -5,7 +5,7 @@ var ctx = canvas.getContext("2d");
 
 var socket = io();
 var PointArray = [];
-
+var lifeCounter = 0;
 
 var mouseClick = 0, //1 for left mouse key event, 2 for right mouse key event.
     lMousePress = 0, //1 when left mouse key being pressed.
@@ -28,9 +28,19 @@ window.requestAnimationFrame = window.requestAnimationFrame
 
 
  
-window.onload = function(){
+window.onload = loadPage();
+
+function loadPage(){
+    menu.style.display = 'block';
     canvas.style.display = 'none';
     var startBtn = document.getElementById('start');
+    if(lifeCounter != 0){
+        let message = "You survived " + lifeCounter + " seconds in the last game. That's impressive!"
+        document.getElementById("lifespan").innerHTML = message;
+    } else{
+        document.getElementById("lifespan").innerHTML = "";
+    }
+    lifeCounter = 0;
     startBtn.onclick = function(){
         let type = "",
             teamNum = -1;
@@ -50,6 +60,7 @@ window.onload = function(){
         socket.emit('checkTeam', teamNum);
         startGame(type, teamNum);
     }
+
 }
 
 
@@ -64,7 +75,8 @@ function startGame(type, teamNum){
     });
     
     //Tell server to add new player.
-    socket.emit('newPlayer', type, window.innerWidth, window.innerHeight);
+    socket.emit('newPlayer', type, window.innerWidth, window.innerHeight, Date.now());
+    socket.emit('lifeCounter', Date.now());
 
 
 
@@ -146,12 +158,16 @@ function socketHandle(){
         Health = length;
     });
 
-    // socket.on('ammoUpdate', function(ammo){
-    //     Ammo = ammo;
-    // });
+    socket.on('ammoUpdate', function(ammo){
+        Ammo = ammo;
+    });
 
-    socket.on('dead', function(){
-        Health = -100;
+    socket.on('dead', function(startTime){
+        lifeCounter = ((Date.now() - startTime) / 1000).toFixed(2);
+        //Reconnect user and reload page.
+        socket.disconnect();
+        socket.connect();
+        loadPage();
     });
 
     socket.on('gameUpdate', function(playersInScreen, pointsInScreen, needlesInScreen, energyInScreen, playerInfo, grid){
