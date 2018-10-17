@@ -2,8 +2,10 @@ var menu = document.getElementById('gameMenu');
 var canvas  = document.getElementById('canvas');
 var ctx = canvas.getContext("2d");
 
-
+//Connects to socket.io in server.
 var socket = io();
+
+
 var PointArray = [];
 var lifeCounter = 0;
 

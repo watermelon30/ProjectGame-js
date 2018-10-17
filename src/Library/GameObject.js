@@ -67,6 +67,11 @@ class gamePoint extends gameObject{
                 }
                 this.velocity.x += 2 * b.x;
                 this.velocity.y += 2 * b.y;
+                if(isNaN(this.velocity.x) || isNaN(this.velocity.y)){
+                    this.respawn();
+                    return false;
+                }
+
                 return true;
             }
         }
@@ -401,7 +406,7 @@ class playerCir extends gamePlayer{
     shrink(amount){
         if(this.radius > 30){
             this.radius *= (1-Global.circleShrinkRate * amount);
-            return true;
+            return true ;
         }
         return false;
     }
@@ -427,10 +432,9 @@ class playerCir extends gamePlayer{
     unseen(){
         if(this.invisibleTimer > 5){
             this.invisible = true;
+            return;
         }
-        else{
-            console.log("Cannot be invisible");
-        }
+        //     console.log("Cannot be invisible");
     }
 
     //Emit energy for feeding teammates.
@@ -686,7 +690,7 @@ class playerRect extends gamePlayer{
                ||point.x - point.radius + velocityToPoint.x <= 0
                ||point.y + point.radius + velocityToPoint.y >= Global.canvasHeight
                ||point.y - point.radius + velocityToPoint.y <= 0){
-                    console.log("boooom");
+                    // console.log("boooom");
                     return new Vector2d(Infinity,Infinity);
             }
         }

@@ -11,12 +11,10 @@ var Vector2d = require('./Library/Vector.js');
 var Global = require('./Library/Global.js');
 var GameObject = require('./Library/GameObject.js');
 
-var Vector2d = require('./Library/Vector.js');
-var Global = require('./Library/Global.js');
-var GameObject = require('./Library/GameObject.js');
 
+// app.set('port', 8888);  
+var port = process.env.PORT || 8081; // set the port
 
-app.set('port', 8888);  
 app.use('/Client', express.static(__dirname + '/Client'));
 
 // Routing
@@ -26,9 +24,14 @@ app.get('/', function(request, response) {
 
   //Starts the server.
   //To play with your friends in the same network(wi-fi), 
-  //add another string param after 8888 with your ip address (Can be found with ipconfig in cmd).
+  //add another string param after 8081 with your ip address (Can be found with ipconfig in cmd).
   //URL will be "yourIP:8888"
-server.listen(8888, function() {
+  
+//   server.listen('8888', function() {
+//     console.log('Server running..');
+//   });
+
+server.listen(port, function() {
     console.log('Server running..');
   });
 
@@ -44,6 +47,9 @@ initGameBoard();
 
 // Add the Web socket handlers. This section will be called when a user connects to the server.
 io.on('connection', function(socket){
+
+    console.log("Player connected!");
+
     //Called when new player being connected.
     //Create new player.
     var currentPlayer = {},
@@ -150,9 +156,6 @@ io.on('connection', function(socket){
         callback(startTime);
     });
 
-    socket.on('lifeCounter', function(startTime){
-
-    })
 });
 
 //gameLoop(): Update game state.
@@ -198,7 +201,7 @@ function gameLoop(){
         } else if(player instanceof GameObject.playerLine){
             //Update each needle being emitted for each player.
             if(player.emit){
-                sockets[Players.indexOf(player)].emit('ammoUpdate', player.ammo);
+                //sockets[Players.indexOf(player)].emit('ammoUpdate', player.ammo);
             }
             player.needleArray.forEach(needle =>{
                 needle.newPos();
@@ -220,7 +223,7 @@ function gameLoop(){
         point.newPos();
         // console.log(point.x, point.y);
     });
-
+    sendUpdate();
 }
 
 //Send updated state to each player.
@@ -352,7 +355,7 @@ function sendUpdate(){
                                     //NEEDLE vs RECTANGLE
                                     else if(player instanceof GameObject.playerRect){
                                         if(needle.touchOthers(player)){
-                                            shrinkPlayer('R', player1, 1);
+                                            shrinkPlayer('R', player, 1);
                                         }
                                     }
                                 }
@@ -390,14 +393,18 @@ function sendUpdate(){
                                 //Energy becomes toxic to enemy.
                                 if(player1.team != player.team){
                                     energy.absorb(player);
-                                    if(player instanceof GameObject.playerCir){
-                                        shrinkPlayer('C', player, 1);
-                                    }
-                                    if(player instanceof GameObject.playerRect){
-                                        shrinkPlayer('R', player, 1);
-                                    }
-                                    if(player instanceof GameObject.playerLine){
-                                        shrinkPlayer('L', player, 1);
+                                    if(energy.absorbed){
+                                        if(energy.shrink()){
+                                            if(player instanceof GameObject.playerCir){
+                                                shrinkPlayer('C', player, 1);
+                                            }
+                                            if(player instanceof GameObject.playerRect){
+                                                shrinkPlayer('R', player, 1);
+                                            }
+                                            if(player instanceof GameObject.playerLine){
+                                                shrinkPlayer('L', player, 1);
+                                            }    
+                                        }
                                     }
                                 }
                                 else{
@@ -476,8 +483,8 @@ function sendUpdate(){
 }
 
 //Update repeatedly.
-setInterval(gameLoop, (1/ Global.fps) * 1000);
-setInterval(sendUpdate, (1 / Global.fps)*1000);
+setInterval(gameLoop, (1000/ Global.fps));
+// setInterval(sendUpdate, (1 / Global.fps)*1000);
 
 
 //Initial board state.
@@ -614,4 +621,3 @@ function teamColor(teamNum){
         return "cyan";
     }
 }
-
