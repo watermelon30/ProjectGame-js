@@ -2,6 +2,10 @@ var Vector2d = require('./Vector.js');
 
 /**
  * Rotate a point by angle(radius) around a centre point.
+ * @param point: the point to be rotated.
+ * @param centre: coordinate where the point is rotated around.
+ * @param angle: The angle of rotation. 
+ * @returns: Rotated point coordinate.
  */
 function rotatePoint(point, centre, angle){
     let rotatedX = Math.cos(angle) * (point.x-centre.x) - Math.sin(angle) * (point.y-centre.y) + centre.x;
@@ -12,22 +16,34 @@ function rotatePoint(point, centre, angle){
 /**
  * Find the closest point from a point to a rectangle.
  * If the point is inside the rectangle, return its own position.
+ * @param pointX, @param pointY: The x and y position of the point.
+ * @param rect: Rectangle object.
+ * @returns: closest point on rectangle.
  */
 function closestPoint(pointX, pointY, rect){
     var closestX, closestY;
+
+    //Check the closest x position from the point to the rectangle.
     if(pointX < (rect.x - rect.width/2)){
+        //Left edge of rectangle as the closest
         closestX = rect.x - rect.width/2;
     } else if(pointX > (rect.x + rect.width/2)){
+        //Right edge of rectangle as the closest
         closestX = rect.x + rect.width/2;
     } else{
+        //X position within the rectangle  
         closestX = pointX;
     }
 
+    //Check the closest y position from the point to the rectangle.
     if(pointY < (rect.y - rect.height/2)){
+        //Top edge of rectangle as the closest
         closestY = rect.y - rect.height/2;
     } else if(pointY > (rect.y + rect.height/2)){
+        //Bottom edge of rectangle as the closest
         closestY = rect.y + rect.height/2;
     } else{
+        //Y position within the rectangle  
         closestY = pointY;
     }
     var closest = new Vector2d(closestX, closestY);
@@ -36,9 +52,10 @@ function closestPoint(pointX, pointY, rect){
 
 //Check the orientation of three points(two segments).
 /**
- * If the slope of segment (p1, p2) > slope of segment (p2, q1), the orientation p1->p2->q1 will be clockwise (return 1).
- * If slope(p1, p2) < slope(p2, q1), the orientation will be anti-clockwise (return 2).
- * If slope are equal, two segments are collinear (return 0).
+ * @param p1, @param p2,@param q1 : Three points on the same plane.
+ * @returns: 1: clockwise orientation.
+ * @returns: 2: anti-clockwise orientation.
+ * @returns: 0: collinear orientation.
  */
 function orientation(p1, p2, q1){
     // let slope1 = (p2.y - p1.y) / (p2.x - p1.x);
@@ -47,13 +64,17 @@ function orientation(p1, p2, q1){
     // else if(slope1 < slope2) return 2;
     // return 0;
     let o = (p2.y - p1.y) * (q1.x - p2.x) - (p2.x - p1.x) * (q1.y - p2.y); 
+    //o: The determinant of two vectors, (p2-p1) and (q1-p2). Assumed that three points are at the same plane.
+    //We can use this to determine the orientation.
     if(o == 0) return 0;
     if(o > 0) return 1;
     if(o < 0) return 2;
 }
 
 /**
- * Given that p1, p2, q1 are collinear, check if q1 is on segment(p1,p2).
+ * Given that three vectors are collinear, check if q1 is on segment(p1,p2).
+ * @param p1, @param p2, @param q1: Three 2d vector representing three collinear points on a plane.
+ * @returns: true if @param q2 is between @param p1 and @param p2. False otherwise.
  */
 function onSegment(p1, p2, q1){
     if(q1.x >= Math.min(p1.x, p2.x) && q1.x <= Math.max(p1.x, p2.x)
@@ -65,9 +86,12 @@ function onSegment(p1, p2, q1){
 
 /**
  * Check intersection for segment (p1, p2) and (q1, q2).
+ * @param p1 @param p2: Head and tail of a line object
+ * @param q1 @param q2: Head and tail of another line object
  * Intersection happens in 2 cases:
- * 1: orientations of one segment and two end points of another segment are different, and vice versa.
+ * 1: orientations of one segment and two end points of another segment are different, and true for the other line.
  * 2: one point of a segment is inside another segment when two segments are collinear.
+ * @returns: true if collision detected, false otherwise.
  */
 function lineIntersect(p1, p2, q1, q2){
     let op1 = orientation(p1, p2, q1),
@@ -80,7 +104,7 @@ function lineIntersect(p1, p2, q1, q2){
 
     //Case 2
     //q1 lies on segment (p1, p2)
-    if(op1 == 0 && (p1, p2, q1)) return true;
+    if(op1 == 0 && onSegment(p1, p2, q1)) return true;
 
     //q2 lies on segment (p1, p2)
     if(op2 == 0 && onSegment(p1, p2, q2)) return true;
@@ -96,7 +120,11 @@ function lineIntersect(p1, p2, q1, q2){
 
 
 /**
- * Detect the collision of line and rectangle.
+ * Collision detection between rectangle and line object.
+ * @param rect: Rectangle object. 
+ * @param lineHead: Position of the head of the line.
+ * @param lineTail: Position of the tail of the line.
+ * @returns: true if collision detected, false otherwise.
  */
 function lineRectIntersect(rect, lineHead, lineTail){
     //Original 4 points of rectangle.
@@ -121,7 +149,11 @@ function lineRectIntersect(rect, lineHead, lineTail){
 }
 
 /**
- * Detect the collision of line and circle.
+ * Collision detection between circle and line object.
+ * @param cir: Circle object. 
+ * @param lineHead: Position of the head of the line.
+ * @param lineTail: Position of the tail of the line.
+ * @returns: true if collision detected, false otherwise.
  */
 function lineCirIntersect(cir, lineHead, lineTail){
     var lineDist = new Vector2d(lineHead.x - lineTail.x, lineHead.y - lineTail.y);
@@ -147,6 +179,14 @@ function lineCirIntersect(cir, lineHead, lineTail){
     return false;
 }
 
+
+/**
+ * Collision detection between circle and rectangle object.
+ * @param rect: Rectangle object. 
+ * @param circleCentre: Centre of the circle object.
+ * @param radius: Radius of the circle object. 
+ * @returns: true if collision detected, false otherwise.
+ */
 function RectCirIntersect(rect, circleCentre, radius){
 
     //Rotate the circle coordinate in negative angle of the rectangle
@@ -162,6 +202,13 @@ function RectCirIntersect(rect, circleCentre, radius){
     else return false;
 }
 
+
+/**
+ * Collision detection for two rectangle objects.
+ * @param self: First rectangle 
+ * @param opposite: Second rectangle. 
+ * @returns: true if collision detected, false otherwise.
+ */
 function collisionRectangles(self, opposite){
     let oppCentre = new Vector2d(opposite.x, opposite.y);
 
@@ -191,7 +238,7 @@ function collisionRectangles(self, opposite){
 }
 
 
-
+//Exporting functions that will be used by other classes.
 module.exports = {
     rotatePoint:rotatePoint,
     closestPoint:closestPoint,

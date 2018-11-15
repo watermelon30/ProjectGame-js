@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Server trying</title>
+        <title>Couch Potato</title>
+        <!-- Style sheet. TODO: Create a separate css file for these-->
 		<style>
 			body {margin: 0; width: 100%; height: 100%; overflow: hidden; background: black}
             
@@ -23,10 +24,12 @@
 
             label {font-size: 20px;}
         </style>
+        <!-- Adding client-side socket.io library -->
         <script src="/socket.io/socket.io.js"></script>
     </head>
-    <!--oncontextmenu = false:　to disable the pop-up menu when mouse right click -->
+    <!--oncontextmenu = false: to disable the pop-up menu when mouse right click -->
     <body oncontextmenu="return false;">
+        <!-- Game menu. Will be gone after player clicks start button -->
         <div id="gameMenu">
                 <p style="font-size: 50px;"><i><b>Couch Potato!</b></i></p>
 
@@ -34,11 +37,13 @@
 
                 <input type="text" id="username" autofocus placeholder="Username">
                 <p style="font-size: 20px;"> Choose your fighter </p>
+                <!-- Ask for type of characters -->
                 <input type="radio" name="type" id="rectangle" value="Rectangle"> <label for="rectangle">Rectangle</label>
                 <input type="radio" name="type" id="circle" value="Circle"> <label for="circle">Circle</label>
                 <input type="radio" name="type" id="line" value="Line"> <label for="line">Line</label>
                 <br>
                 <p style="font-size: 20px;"> Join Team </p>
+                <!-- Ask for the desired team -->
                 <input type="radio" name="team" id="zero" value="Zero"> <label for="zero"> Rainbow </label>
                 <input type="radio" name="team" id="one" value="One"> <label for="one">Toothpaste</label>
                 <input type="radio" name="team" id="two" value="Two"> <label for="two">Keyboard</label>
@@ -49,8 +54,10 @@
                 <button type="button" id="start" >Start</button>
                 <br><br>
         </div>
+        <!-- Game canvas. Will appear after player clicks start button -->
         <canvas id="canvas"></canvas>
     </body>
+    <!-- App.js to handle user events and server responses. -->
     <script src="/Client/App.js"></script>
 
 </html>

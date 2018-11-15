@@ -91,7 +91,7 @@ Game rule
                    Get shrinked but make huge damage to the brick.
 
 
-Moving Speed: 
+Moving Speed: //Not done yet
     -   The bigger mass the slower.
         Speed for each character with the same amount of mass:
             Line > Circle > Rectangle.
@@ -104,4 +104,4 @@ Health amount:
 
 
 Winning condition:
-    All players in a team died.
+    All players in other teams died.
