@@ -515,7 +515,7 @@ function sendUpdate(){
                 playerInfo.push('R'); //[1]
                 //TODO: Adding brick mode.
             }
-            //playerInfo[0]: health amount, [1]: player type code, [2].. special info for this type.
+            //playerInfo[0]: health amount, [1]: player type code, [2][3] special info for that type.
 
             //Emit update info to a specific player.
             //Compress function added to reduce network transfer workload. 

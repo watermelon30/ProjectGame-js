@@ -58,11 +58,6 @@ function closestPoint(pointX, pointY, rect){
  * @returns: 0: collinear orientation.
  */
 function orientation(p1, p2, q1){
-    // let slope1 = (p2.y - p1.y) / (p2.x - p1.x);
-    // let slope2 = (q1.y - p2.y) / (q1.x - p2.x);
-    // if(slope1 > slope2) return 1;
-    // else if(slope1 < slope2) return 2;
-    // return 0;
     let o = (p2.y - p1.y) * (q1.x - p2.x) - (p2.x - p1.x) * (q1.y - p2.y); 
     //o: The determinant of two vectors, (p2-p1) and (q1-p2). Assumed that three points are at the same plane.
     //We can use this to determine the orientation.

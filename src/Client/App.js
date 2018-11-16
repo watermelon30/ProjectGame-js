@@ -333,7 +333,12 @@ function drawBackground(grid){
     ctx.closePath();
 }
 
-//Function that draws the player info at the bottom of the screen.
+
+/**
+ * Function that draws the player info at the bottom of the screen.
+ * @param playerInfo: Array that contains player information.
+ * @param healthAmount: Contains the health amount of a player.
+ */
 function displayInfo(playerInfo, healthAmount){
     ctx.font = "20px Comic Sans MS";
     ctx.fillStyle = "#00FF00";
@@ -360,7 +365,7 @@ function displayInfo(playerInfo, healthAmount){
 
 }
 
-//Assign a random type for user.
+//Assign a type randomly for user.
 function randomType(){
     var random = Math.floor(Math.random() * 3) + 1;
     if(random == 1) return "Rectangle"; 
