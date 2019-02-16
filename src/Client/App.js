@@ -6,6 +6,7 @@ var ctx = canvas.getContext("2d");
 var socket = io.connect();
 
 
+
 var LifeCounter = 0; //To count the time a player is alive.
 
 var mouseClick = 0, //will be 1 for left mouse key event, 2 for right mouse key event.
@@ -16,6 +17,7 @@ var PlayersInScreen = [],
     PointsInScreen  = [],
     NeedlesInScreen = [],
     EnergyInScreen = [],
+    ScreenTLCoord,
     Health = 0,
     Grid = 0,
     Ammo = 0, //Only used for line character.
@@ -76,7 +78,6 @@ function loadPage(){
         socket.emit('checkTeam', teamNum);
         startGame(type);
     }
-
 }
 
 //Starting the game after user presses start button.
@@ -198,14 +199,23 @@ function socketHandle(){
     });
 
     //Update sent from server to show the new game state.
-    socket.on('gameUpdate', function(playersInScreen, pointsInScreen, needlesInScreen, energyInScreen, playerInfo, grid){
+    socket.on('gameUpdate', function(playersInScreen, needlesInScreen, energyInScreen, playerInfo, grid){
         //console.log("New update!");
         PlayersInScreen = playersInScreen;
-        PointsInScreen = pointsInScreen;
         NeedlesInScreen = needlesInScreen;
         EnergyInScreen = energyInScreen;
         PlayerInfo = playerInfo;
         Grid = grid;
+    });
+
+    socket.on('pointsUpdate', function(pointsInScreen){
+        PointsInScreen = pointsInScreen;
+    });
+
+    socket.on('screenTL', function(screenCoor){
+        console.log("received");
+        ScreenTLCoord = screenCoor;
+        console.log(ScreenTLCoord.x, ScreenTLCoord.y);
     });
 }
 
@@ -218,7 +228,7 @@ function drawPoint(pointArray){
         ctx.beginPath();
         ctx.fillStyle = point.color;
         //Subtract screen top left to get coordinate in screen perspective.
-        ctx.arc(point.x, point.y, point.radius, 0, 2*Math.PI, false);
+        ctx.arc(point.x - ScreenTLCoord.x, point.y - ScreenTLCoord.y, point.radius, 0, 2*Math.PI, false);
         ctx.fill();
         ctx.closePath();
     });

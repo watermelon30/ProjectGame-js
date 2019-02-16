@@ -28,6 +28,7 @@ app.get('/', function(request, response) {
 //File in Client(App.js) will be run first when a message is sent from server to client or the other way round.
 app.use('/Client', express.static(__dirname + '/Client'));
 
+
 //Starts the server with port == 8081|environment port.
 server.listen(port, function() {
     console.log('Server running..');
@@ -174,10 +175,20 @@ io.on('connection', function(socket){
 
 //gameLoop(): Updating game state.
 function gameLoop(){
+    //Update new position for point objects.
+    PointArray.forEach(point =>{
+        point.newPos();
+        //console.log(point.x, point.y); //DEBUG
+    });
+
     //Handling player and public objects interaction.
     Players.forEach(player =>{
+        var inScreenPoint = [];
         //Update player position.
         player.newPos();
+
+        sockets[Players.indexOf(player)].emit('screenTL', player.screenTL);
+
         if(player instanceof GameObject.playerCir){
             //Update energy object position for circle.
             player.energyArray.forEach(energy =>{
@@ -202,10 +213,16 @@ function gameLoop(){
                             }
                         }
                     }
-                    //Assign new speed to the point objects.. 
+                    //Assign new speed to the point objects. 
                     else {
                         point.newSpeed(player);
                     }
+                    inScreenPoint.push({
+                        x: point.x,
+                        y: point.y,
+                        color: point.color,
+                        radius: point.radius
+                    });
                 }
             });
         } else if(player instanceof GameObject.playerRect){
@@ -216,6 +233,13 @@ function gameLoop(){
                         for(let i=0; i<5;i++){
                             player.stretch(0.3);
                         }
+                    } else{
+                        inScreenPoint.push({
+                            x: point.x,
+                            y: point.y,
+                            color: point.color,
+                            radius: point.radius
+                        });    
                     }
                 }
             });
@@ -238,15 +262,18 @@ function gameLoop(){
                             player.stretch(1);
                         }
                     }
+                    inScreenPoint.push({
+                        x: point.x,
+                        y: point.y,
+                        color: point.color,
+                        radius: point.radius
+                    });   
                 }
             });
         }
+        sockets[Players.indexOf(player)].emit('pointsUpdate', inScreenPoint);
     });
-    //Update new position for point objects.
-    PointArray.forEach(point =>{
-        point.newPos();
-        //console.log(point.x, point.y); //DEBUG
-    });
+
     sendUpdate();
 }
 
@@ -255,7 +282,6 @@ function sendUpdate(){
     if(Players.length > 0){
         Players.forEach(player=>{
             var inScreenPlayer = [],
-                inScreenPoint = [],
                 inScreenNeedle = [],
                 inScreenEnergy = [],
                 grid = [],
@@ -478,16 +504,16 @@ function sendUpdate(){
                 });
 
             //Check any point objects existing in current player's screen.
-            PointArray.forEach(point =>{
-                if(point.inScreen(player.screenTL, player.screenBR)){
-                    inScreenPoint.push({
-                        x: point.x - player.screenTL.x,
-                        y: point.y - player.screenTL.y,
-                        color: point.color,
-                        radius: point.radius
-                    });
-                }
-            });
+            // PointArray.forEach(point =>{
+            //     if(point.inScreen(player.screenTL, player.screenBR)){
+            //         inScreenPoint.push({
+            //             x: point.x - player.screenTL.x,
+            //             y: point.y - player.screenTL.y,
+            //             color: point.color,
+            //             radius: point.radius
+            //         });
+            //     }
+            // });
             
             //TODO: gridGap could be sent in a non-repeated emission.
             grid.push(Global.gridGap);
@@ -522,7 +548,7 @@ function sendUpdate(){
             //volatile flag to allow the lost of the data, as it will be sent again soon.
             //TODO: Reduce the data sent between server and client
             sockets[Players.indexOf(player)].compress(true).emit(
-                'gameUpdate', inScreenPlayer, inScreenPoint, inScreenNeedle, inScreenEnergy, playerInfo, grid
+                'gameUpdate', inScreenPlayer, inScreenNeedle, inScreenEnergy, playerInfo, grid
             );
         });
     }
