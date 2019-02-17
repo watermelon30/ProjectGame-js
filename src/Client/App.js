@@ -5,7 +5,7 @@ var ctx = canvas.getContext("2d");
 //Connecting to the WebSocket in the server.
 var socket = io.connect();
 
-
+var temp = false;
 
 var LifeCounter = 0; //To count the time a player is alive.
 
@@ -17,9 +17,9 @@ var PlayersInScreen = [],
     PointsInScreen  = [],
     NeedlesInScreen = [],
     EnergyInScreen = [],
-    ScreenTLCoord,
+    ScreenTLCoord = 0,
     Health = 0,
-    Grid = 0,
+    GridGap = 0,
     Ammo = 0, //Only used for line character.
     PlayerInfo = [];
 
@@ -155,7 +155,7 @@ function drawCanvas(){
     ctx.fillStyle = "black";
     ctx.fillRect(0,0, canvas.width , canvas.height);
 
-    drawBackground(Grid);
+    drawBackground();
 
     // Draw visible objects.
     if(PointsInScreen.length > 0){
@@ -177,6 +177,12 @@ function drawCanvas(){
 
 //Handle socket responses from server.
 function socketHandle(){
+
+    socket.on('gridGap', function(gridGap){
+        GridGap = gridGap;
+        console.log(GridGap);
+    });
+
     //Health amount update from the server
     socket.on('healthUpdate', function(length){
         Health = length;
@@ -199,13 +205,12 @@ function socketHandle(){
     });
 
     //Update sent from server to show the new game state.
-    socket.on('gameUpdate', function(playersInScreen, needlesInScreen, energyInScreen, playerInfo, grid){
+    socket.on('gameUpdate', function(playersInScreen, needlesInScreen, energyInScreen, playerInfo){
         //console.log("New update!");
         PlayersInScreen = playersInScreen;
         NeedlesInScreen = needlesInScreen;
         EnergyInScreen = energyInScreen;
         PlayerInfo = playerInfo;
-        Grid = grid;
     });
 
     socket.on('pointsUpdate', function(pointsInScreen){
@@ -213,9 +218,7 @@ function socketHandle(){
     });
 
     socket.on('screenTL', function(screenCoor){
-        console.log("received");
         ScreenTLCoord = screenCoor;
-        console.log(ScreenTLCoord.x, ScreenTLCoord.y);
     });
 }
 
@@ -321,20 +324,24 @@ function drawCirclePlayer(player){
  * @param grid: An array that contains the information for the grid. 
  * grid[0] is the grid gap, grid[1] is first vertical line to be drawn, grid[2] is first parallel line.
  */
-function drawBackground(grid){
+function drawBackground(){
     ctx.lineWidth=1;
     ctx.strokeStyle = "#00ff00";    //Green line
     ctx.globalAlpha=0.5;
     ctx.beginPath();
 
+
+    var firstX = GridGap - ScreenTLCoord.x % GridGap,
+        firstY = GridGap - ScreenTLCoord.y % GridGap;
+
     //Drawing vertical lines.
-    for(var i=grid[1] - grid[0]; i<window.innerWidth; i+=grid[0]){
+    for(var i=firstX - GridGap; i<window.innerWidth; i+=GridGap){
         ctx.moveTo(i, 0); 
         ctx.lineTo(i, window.innerHeight);
     }
 
     //Drawing parallel lines.
-    for(var i=grid[2] - grid[0]; i<window.innerHeight; i+=grid[0]){
+    for(var i=firstY - GridGap; i<window.innerHeight; i+=GridGap){
         ctx.moveTo(0, i);
         ctx.lineTo(window.innerWidth, i);
     }

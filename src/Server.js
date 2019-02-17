@@ -101,6 +101,8 @@ io.on('connection', function(socket){
             //Keeping track of each team player num.
             playerNumInTeam[actualTeam]++;
             socket.emit('healthUpdate', currentPlayer.lifeBar.life);
+            socket.emit('screenTL', currentPlayer.screenTL);
+            socket.emit('gridGap', Global.gridGap);
             console.log("new player !");
             console.log(playerNumInTeam);
         }
@@ -284,7 +286,6 @@ function sendUpdate(){
             var inScreenPlayer = [],
                 inScreenNeedle = [],
                 inScreenEnergy = [],
-                grid = [],
                 playerInfo = [];
 
                 //Check interaction between players within the current screen.
@@ -514,17 +515,14 @@ function sendUpdate(){
             //         });
             //     }
             // });
-            
-            //TODO: gridGap could be sent in a non-repeated emission.
-            grid.push(Global.gridGap);
 
             // grid.push(player.grid.x - player.screenTL.x);
             // grid.push(player.grid.y - player.screenTL.y);
             // console.log(player.screenTL.x);
 
             //Finding the first line of grip to be drawn on player screen.
-            grid.push(Global.gridGap - player.screenTL.x % Global.gridGap);
-            grid.push(Global.gridGap - player.screenTL.y % Global.gridGap);
+            // grid.push(Global.gridGap - player.screenTL.x % Global.gridGap);
+            // grid.push(Global.gridGap - player.screenTL.y % Global.gridGap);
 
 
             playerInfo.push(player.lifeBar.life); //[0]
@@ -548,7 +546,7 @@ function sendUpdate(){
             //volatile flag to allow the lost of the data, as it will be sent again soon.
             //TODO: Reduce the data sent between server and client
             sockets[Players.indexOf(player)].compress(true).emit(
-                'gameUpdate', inScreenPlayer, inScreenNeedle, inScreenEnergy, playerInfo, grid
+                'gameUpdate', inScreenPlayer, inScreenNeedle, inScreenEnergy, playerInfo
             );
         });
     }
