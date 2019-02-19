@@ -13,6 +13,8 @@ var mouseClick = 0, //will be 1 for left mouse key event, 2 for right mouse key 
     lMousePress = false, //true when left mouse key is pressed.
     rMousePress = false; //true when right mouse key is pressed. 
 
+var Players = [];   //Information for all player.
+
 var PlayersInScreen = [],
     PointsInScreen  = [],
     NeedlesInScreen = [],
@@ -217,13 +219,25 @@ function socketHandle(){
         PlayerInfo = playerInfo;
     });
 
+    //Update for point objects
     socket.on('pointsUpdate', function(pointsInScreen){
         PointsInScreen = pointsInScreen;
     });
 
+    //Update for the coordinate of the user's top left screen in server view 
+    //(Used to calculate relative coordinate for other objects and grid bg).
     socket.on('screenTL', function(screenCoor){
         ScreenTLCoord = screenCoor;
     });
+
+
+    //Getting all the player data for rendering.
+    socket.on('playersList', function(PlayersList){
+        Players = PlayersList;
+        console.log(Object.keys(Players));
+    });
+
+
 }
 
 

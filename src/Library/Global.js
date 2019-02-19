@@ -7,14 +7,15 @@ module.exports = {
     fps: 60,
     energyBonusRate: 2,
 
-
+    circleDefaultR: 50,
     circleLifeAmount:250,
     circleStretchRate: 0.001,
     circleShrinkRate: 0.005,
     circleMaxR: 150,
     circleMinR: 30,
     circleMaxInvMode: 15,
-
+    
+    lineDefaultL: 100,
     lineLifeAmount: 100,
     lineStretchRate: 0.001,
     lineShrinkRate: 0.005,
@@ -23,6 +24,8 @@ module.exports = {
     lineMaxAmmo: 1000,
     ammoReload: 1,
 
+    rectDefaultW:40,
+    rectDefaultH:120,
     rectangleLifeAmount: 500,
     rectangleStretchRate: 0.002,
     rectangleShrinkRate: 0.003,

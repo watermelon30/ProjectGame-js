@@ -46,10 +46,13 @@ server.listen(port, function() {
 
 
 var Players = []; //Storing each player info.
+var PlayersForClient = {}; 
 var playerNumInTeam = [0,0,0,0]; //Keep track of number of player in each team.
 var PointArray = [];
 var sockets = []; //Storing each player socket.
 var PlayerLifeCounters = []; //Keep track of the time of a player in the game.
+
+
 initGameBoard();
 
 
@@ -86,24 +89,53 @@ io.on('connection', function(socket){
 
         //Assign new player
         if(type == "Circle"){
-            currentPlayer = new GameObject.playerCir(socket.id, position.x, position.y, color, screenWidth, screenHeight, 50, actualTeam);
+            currentPlayer = new GameObject.playerCir(socket.id, position.x, position.y, color, screenWidth, screenHeight, Global.circleDefaultR, actualTeam);            
+            PlayersForClient[socket.id] = {
+                x: position.x, 
+                y: position.y, 
+                color: color, 
+                radius: Global.circleDefaultR, 
+                alpha: currentPlayer.alpha, 
+                type: type
+            };
+
         } else if(type == "Rectangle"){
-            currentPlayer = new GameObject.playerRect(socket.id, position.x, position.y, color, screenWidth, screenHeight, 40, 120, actualTeam);
+            currentPlayer = new GameObject.playerRect(socket.id, position.x, position.y, color, screenWidth, screenHeight, Global.rectDefaultW, Global.rectDefaultH, actualTeam);
+            PlayersForClient[socket.id] = {
+                x: position.x, 
+                y: position.y, 
+                color: color, 
+                width: Global.rectDefaultW, 
+                height: Global.rectDefaultH, 
+                angle: currentPlayer.angle,
+                type: type
+            };
         } else if(type == "Line"){
-            currentPlayer = new GameObject.playerLine(socket.id, position.x, position.y, color, screenWidth, screenHeight, 100, actualTeam);
+            currentPlayer = new GameObject.playerLine(socket.id, position.x, position.y, color, screenWidth, screenHeight, Global.lineDefaultL, actualTeam);
+            PlayersForClient[socket.id] = {
+                x: position.x, 
+                y: position.y, 
+                color: color,
+                endPointX: currentPlayer.endPoint.x, 
+                endPointY: currentPlayer.endPoint.y, 
+                type: type
+            };
+
         }
         if(currentPlayer != {}){
-            // console.log("socket Id: ", socket);
+            console.log("socket Id: ", socket.id);
             //Storing player and socket info.
             Players.push(currentPlayer);
             sockets.push(socket);
             PlayerLifeCounters.push(startTime);
+
 
             //Keeping track of each team player num.
             playerNumInTeam[actualTeam]++;
             socket.emit('healthUpdate', currentPlayer.lifeBar.life);
             socket.emit('screenTL', currentPlayer.screenTL);
             socket.emit('gridGap', Global.gridGap);
+            socket.emit('playersList', PlayersForClient);
             console.log("new player !");
             console.log(playerNumInTeam);
         }
