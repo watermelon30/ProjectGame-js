@@ -365,6 +365,8 @@ class gamePlayer{
 class playerCir extends gamePlayer{
     constructor(id, x, y, color, screenWidth, screenHeight, radius, team){
         super(id,x,y,color, screenHeight, screenWidth, team);
+        this.type = "Circle";
+
         this.radius = radius;
         this.alpha = 1.0;
 
@@ -584,6 +586,7 @@ class playerCir extends gamePlayer{
 class playerLine extends gamePlayer{
     constructor(id, x, y, color, screenWidth, screenHeight, length, team){
         super(id, x,y,color, screenHeight, screenWidth, team);
+        this.type = "Line";
         this.length = length;
         this.direction = new Vector2d(1,1);
         this.needleArray = [];
@@ -759,6 +762,7 @@ class playerLine extends gamePlayer{
 class playerRect extends gamePlayer{
     constructor(id, x, y, color, screenWidth, screenHeight, width, height, team){
         super(id, x,y, color, screenHeight, screenWidth, team);
+        this.type = "Rectangle";
         this.width = width;
         this.height = height;
         this.angle = 0;

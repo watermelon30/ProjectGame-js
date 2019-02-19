@@ -93,6 +93,7 @@ io.on('connection', function(socket){
             currentPlayer = new GameObject.playerLine(socket.id, position.x, position.y, color, screenWidth, screenHeight, 100, actualTeam);
         }
         if(currentPlayer != {}){
+            // console.log("socket Id: ", socket);
             //Storing player and socket info.
             Players.push(currentPlayer);
             sockets.push(socket);
@@ -273,7 +274,7 @@ function gameLoop(){
                 }
             });
         }
-        sockets[Players.indexOf(player)].emit('pointsUpdate', inScreenPoint);
+       sockets[Players.indexOf(player)].emit('pointsUpdate', inScreenPoint);
     });
 
     sendUpdate();
@@ -288,9 +289,11 @@ function sendUpdate(){
                 inScreenEnergy = [],
                 playerInfo = [];
 
+
+                // sockets[Players.indexOf(player)].emit('self', inScreenPlayer, inScreenNeedle, inScreenEnergy, playerInfo);
+
                 //Check interaction between players within the current screen.
                 Players.forEach(player1=>{
-
                     //Check if other players are in the current player's screen.
                     if(player1.inScreen(player.screenTL, player.screenBR)){
 
@@ -327,12 +330,12 @@ function sendUpdate(){
                             }
                             //Add all circle players visible to current player into the array.
                             inScreenPlayer.push({
-                                x: player1.x - player.screenTL.x,
-                                y: player1.y - player.screenTL.y,
+                                x: player1.x,
+                                y: player1.y,
                                 color: player1.color,
                                 radius: player1.radius,
                                 alpha: player1.alpha,
-                                type: "Circle"
+                                type: player1.type
                             });
                         }
 
@@ -357,13 +360,13 @@ function sendUpdate(){
                             }
                             //Add all rectangle players visible to current player into the array.
                             inScreenPlayer.push({
-                                x: player1.x - player.screenTL.x,
-                                y: player1.y - player.screenTL.y,
+                                x: player1.x,
+                                y: player1.y,
                                 color: player1.color,
                                 width: player1.width,
                                 height: player1.height,
                                 angle: player1.angle,
-                                type: "Rectangle"
+                                type: player1.type
                             });
                         }
                         //Action if other players are type Line.
@@ -380,12 +383,12 @@ function sendUpdate(){
                             }  
                             //Add all line player visible to current player into the array. 
                             inScreenPlayer.push({
-                                x: player1.x - player.screenTL.x,
-                                y: player1.y - player.screenTL.y,
+                                x: player1.x,
+                                y: player1.y,
                                 color: player1.color,
-                                endPointX: player1.endPoint.x - player.screenTL.x,
-                                endPointY: player1.endPoint.y - player.screenTL.y,
-                                type: "Line"
+                                endPointX: player1.endPoint.x,
+                                endPointY: player1.endPoint.y,
+                                type: player1.type
                             });
                         }
                     }
@@ -420,10 +423,10 @@ function sendUpdate(){
                                 }
                                 //Add needle objects visible to current player into the array.
                                 inScreenNeedle.push({
-                                    x: needle.x - player.screenTL.x,
-                                    y: needle.y - player.screenTL.y,
-                                    endPointX: needle.endPoint.x - player.screenTL.x,
-                                    endPointY: needle.endPoint.y - player.screenTL.y
+                                    x: needle.x,
+                                    y: needle.y,
+                                    endPointX: needle.endPoint.x,
+                                    endPointY: needle.endPoint.y
                                 });
                                 return;
                             }
@@ -491,8 +494,8 @@ function sendUpdate(){
                                 //Adding visible energy objects to the array.
                                 if(energy.radius > 0){
                                     inScreenEnergy.push({
-                                        x: energy.x - player.screenTL.x,
-                                        y: energy.y - player.screenTL.y,
+                                        x: energy.x,
+                                        y: energy.y,
                                         color: energy.color,
                                         radius: energy.radius
                                     });

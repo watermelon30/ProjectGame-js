@@ -5,7 +5,7 @@ var ctx = canvas.getContext("2d");
 //Connecting to the WebSocket in the server.
 var socket = io.connect();
 
-var temp = false;
+var showNotification = 0;
 
 var LifeCounter = 0; //To count the time a player is alive.
 
@@ -113,6 +113,7 @@ function startGame(type){
         else if(e.button == 2){
             rMousePress = true;
             mouseClick  = 2;
+            if(type == 'Line') showNotification = 45;
         }
         socket.emit('mouseClick', mouseClick);
     });
@@ -171,6 +172,9 @@ function drawCanvas(){
         drawNeedle(NeedlesInScreen);
     }
     displayInfo(PlayerInfo, Health);
+    drawNotification();
+
+
     requestAnimationFrame(drawCanvas);
 }
 
@@ -222,6 +226,8 @@ function socketHandle(){
     });
 }
 
+
+
 /**
  * Function that draws each element of the array of point objects.
  * @param pointArray: Array that contains all the visible public point objects. 
@@ -247,8 +253,8 @@ function drawNeedle(needleArray){
         ctx.strokeStyle = "white";
         ctx.beginPath();
         //Draw a line from the head to the tail to represent a needle.
-        ctx.moveTo(needle.x, needle.y);
-        ctx.lineTo(needle.endPointX, needle.endPointY);
+        ctx.moveTo(needle.x-ScreenTLCoord.x, needle.y-ScreenTLCoord.y);
+        ctx.lineTo(needle.endPointX-ScreenTLCoord.x, needle.endPointY-ScreenTLCoord.y);
         ctx.stroke();
         ctx.closePath();
     })
@@ -278,7 +284,7 @@ function drawPlayer(playerArray){
 function drawRectPlayer(player){
     ctx.save();
     //Translate to the centre of rect, rotate with player current angle, draw the rect, and restore.
-    ctx.translate(player.x, player.y);
+    ctx.translate(player.x-ScreenTLCoord.x, player.y-ScreenTLCoord.y);
     ctx.rotate(player.angle);
     ctx.fillStyle = player.color;
     //Draw the rectangle bigger to make a more realistic collision.
@@ -295,8 +301,8 @@ function drawLinePlayer(player){
     ctx.strokeStyle = player.color;
     ctx.beginPath();
     //Draw from head to tail.
-    ctx.moveTo(player.x, player.y);
-    ctx.lineTo(player.endPointX, player.endPointY);
+    ctx.moveTo(player.x-ScreenTLCoord.x, player.y-ScreenTLCoord.y);
+    ctx.lineTo(player.endPointX-ScreenTLCoord.x, player.endPointY-ScreenTLCoord.y);
     ctx.stroke();
     ctx.closePath();
 }
@@ -312,7 +318,7 @@ function drawCirclePlayer(player){
     ctx.fillStyle = player.color;
 
     //Draw the circle bigger than its radius to make more realistic collision.
-    ctx.arc(player.x, player.y, player.radius + 5, 0, 2*Math.PI, false);
+    ctx.arc(player.x-ScreenTLCoord.x, player.y-ScreenTLCoord.y, player.radius + 5, 0, 2*Math.PI, false);
 
     ctx.fill();
     ctx.closePath();
@@ -349,6 +355,20 @@ function drawBackground(){
     ctx.globalAlpha=1;
     ctx.closePath();
 }
+
+function drawNotification(){    
+    if(showNotification > 10){
+        ctx.lineWidth=5;
+        ctx.strokeStyle = "yellow";
+        ctx.beginPath();
+        ctx.arc(window.innerWidth * 0.1, window.innerHeight * 0.95, showNotification, 0, 2*Math.PI, false);
+        ctx.stroke();
+        ctx.closePath();
+        showNotification--;
+
+    }
+}
+
 
 
 /**
