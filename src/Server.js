@@ -1,19 +1,18 @@
 
 var express = require('express');
-var http = require('http');
+var Http = require('http');
 var path = require('path');
 
 var app = express(); // express functions that will handle events server gets.
-var server = http.Server(app);
+var server = Http.Server(app);
 
 // An io object that waits for the new client of this server to connect to.
 var io = require('socket.io')(server);
 
 // Connecting other files.
-var vector2d = require('./Library/Vector.js');
-var global = require('./Library/Global.js');
-var gameObject = require('./Library/GameObject.js');
-
+var Vector2d = require('./Library/Vector.js');
+var GameObject = require('./Library/GameObject.js');
+const GLOBAL = require('./Library/Global.js');
 
 // Setup the port. Allow to define environment variable PORT to set the port for web server.
 var port = process.env.PORT || 8081;
@@ -95,12 +94,12 @@ io.on('connection', function (socket)
         // Assign new player
         if (type == "Circle")
         {
-            currentPlayer = new gameObject.playerCir(socket.id, position.x, position.y, color, screenWidth, screenHeight, global.circleDefaultR, actualTeam);
+            currentPlayer = new GameObject.PlayerCir(socket.id, position.x, position.y, color, screenWidth, screenHeight, GLOBAL.circleDefaultR, actualTeam);
             playersListForClient[socket.id] = {
                 x: position.x,
                 y: position.y,
                 color: color,
-                radius: global.circleDefaultR,
+                radius: GLOBAL.circleDefaultR,
                 alpha: currentPlayer.alpha,
                 type: type
             };
@@ -108,20 +107,20 @@ io.on('connection', function (socket)
         }
         else if (type == "Rectangle")
         {
-            currentPlayer = new gameObject.playerRect(socket.id, position.x, position.y, color, screenWidth, screenHeight, global.rectDefaultW, global.rectDefaultH, actualTeam);
+            currentPlayer = new GameObject.PlayerRect(socket.id, position.x, position.y, color, screenWidth, screenHeight, GLOBAL.rectDefaultW, GLOBAL.rectDefaultH, actualTeam);
             playersListForClient[socket.id] = {
                 x: position.x,
                 y: position.y,
                 color: color,
-                width: global.rectDefaultW,
-                height: global.rectDefaultH,
+                width: GLOBAL.rectDefaultW,
+                height: GLOBAL.rectDefaultH,
                 angle: currentPlayer.angle,
                 type: type
             };
         }
         else if (type == "Line")
         {
-            currentPlayer = new gameObject.playerLine(socket.id, position.x, position.y, color, screenWidth, screenHeight, global.lineDefaultL, actualTeam);
+            currentPlayer = new GameObject.PlayerLine(socket.id, position.x, position.y, color, screenWidth, screenHeight, GLOBAL.lineDefaultL, actualTeam);
             playersListForClient[socket.id] = {
                 x: position.x,
                 y: position.y,
@@ -145,7 +144,7 @@ io.on('connection', function (socket)
             playerNumInTeam[actualTeam]++;
             socket.emit('healthUpdate', currentPlayer.lifeBar.life);
             socket.emit('screenTL', currentPlayer.screenTL);
-            socket.emit('gridGap', global.gridGap);
+            socket.emit('gridGap', GLOBAL.gridGap);
             socket.emit('playersList', playersListForClient);
             console.log("new player !");
             console.log(playerNumInTeam);
@@ -182,7 +181,7 @@ io.on('connection', function (socket)
         let player = currentPlayer;
 
         // Call different functions based on type of player.
-        if (player instanceof gameObject.playerRect)
+        if (player instanceof GameObject.PlayerRect)
         {
             // Left mouse key: Clockwise rotation.
             if (click == 1) player.moveAngle = 2;
@@ -190,7 +189,7 @@ io.on('connection', function (socket)
             else if (click == 2) player.moveAngle = -2;
             else player.moveAngle = 0;
         }
-        else if (player instanceof gameObject.playerLine)
+        else if (player instanceof GameObject.PlayerLine)
         {
             // Left mouse key: Needle emission.
             if (click == 1) player.emit = true;
@@ -198,7 +197,7 @@ io.on('connection', function (socket)
             else if (click == 2) player.ammoMode = !player.ammoMode;
             else player.emit = false;
         }
-        else if (player instanceof gameObject.playerCir)
+        else if (player instanceof GameObject.PlayerCir)
         {
             // Left mouse key: Invisible mode.
             if (click == 1) player.unseen();
@@ -211,7 +210,7 @@ io.on('connection', function (socket)
     socket.on('mouseMove', function (clientX, clientY)
     {
         let player = currentPlayer;
-        player.target = new vector2d(clientX, clientY);
+        player.target = new Vector2d(clientX, clientY);
     });
 
     // Check the latency of the network.
@@ -245,7 +244,7 @@ function gameLoop()
 
         sockets[playersList.indexOf(player)].emit('screenTL', player.screenTL);
 
-        if (player instanceof gameObject.playerCir)
+        if (player instanceof GameObject.PlayerCir)
         {
             // Update energy object position for circle.
             player.energyArray.forEach(energy =>
@@ -261,7 +260,7 @@ function gameLoop()
                     if (player.invisible)
                     {
                         // Check if circle player covers the point under its area.
-                        if (player.eatPoint(new vector2d(point.x, point.y)))
+                        if (player.eatPoint(new Vector2d(point.x, point.y)))
                         {
                             // Gain mass/lifeBar when a point is shrinking.
                             if (point.shrink())
@@ -291,7 +290,7 @@ function gameLoop()
                 }
             });
         }
-        else if (player instanceof gameObject.playerRect)
+        else if (player instanceof GameObject.PlayerRect)
         {
             pointsArray.forEach(point =>
             {
@@ -316,7 +315,7 @@ function gameLoop()
                 }
             });
         }
-        else if (player instanceof gameObject.playerLine)
+        else if (player instanceof GameObject.PlayerLine)
         {
             // Update emit amount when emission.
             // if(player.emit){
@@ -332,7 +331,7 @@ function gameLoop()
             {
                 if (point.inScreen(player.screenTL, player.screenBR))
                 {
-                    if (player.eatPoint(new vector2d(point.x, point.y), point.radius))
+                    if (player.eatPoint(new Vector2d(point.x, point.y), point.radius))
                     {
                         // Shrink point object and stretch line player when collision.
                         if (point.shrink())
@@ -379,7 +378,7 @@ function sendUpdate()
                 {
 
                     // Action if other players are type Circle.
-                    if (player1 instanceof gameObject.playerCir)
+                    if (player1 instanceof GameObject.PlayerCir)
                     {
                         // Collision detection only with enemy.
                         if (player1.team != player.team)
@@ -388,12 +387,12 @@ function sendUpdate()
                             if (!player1.invisible)
                             {
                                 // CIRCLE vs CIRCLE
-                                if (player instanceof gameObject.playerCir)
+                                if (player instanceof GameObject.PlayerCir)
                                 {
                                     // Interaction only if both are not invisible.
                                     if (!player.invisible)
                                     {
-                                        if (player1.collisionCircle(new vector2d(player.x, player.y), player.radius))
+                                        if (player1.collisionCircle(new Vector2d(player.x, player.y), player.radius))
                                         {
                                             // Shrinking both circles.
                                             shrinkPlayer('C', player1, 0.5);
@@ -402,15 +401,15 @@ function sendUpdate()
                                     }
                                 }
                                 // CIRCLE vs RECTANGLE
-                                if (player instanceof gameObject.playerRect)
+                                if (player instanceof GameObject.PlayerRect)
                                 {
-                                    if (player.collisionCircle(new vector2d(player1.x, player1.y), player1.radius))
+                                    if (player.collisionCircle(new Vector2d(player1.x, player1.y), player1.radius))
                                     {
                                         shrinkPlayer('C', player1, 1);
                                     }
                                 }
                                 // CIRCLE vs LINE
-                                if (player instanceof gameObject.playerLine)
+                                if (player instanceof GameObject.PlayerLine)
                                 {
                                     if (player.touchOthers(player1))
                                     {
@@ -431,12 +430,12 @@ function sendUpdate()
                     }
 
                     // Action if other players are type Rectangle
-                    if (player1 instanceof gameObject.playerRect)
+                    if (player1 instanceof GameObject.PlayerRect)
                     {
                         if (player1.team != player.team)
                         {
                             // RECTANGLE vs RECTANGLE
-                            if (player instanceof gameObject.playerRect)
+                            if (player instanceof GameObject.PlayerRect)
                             {
                                 if (player1.collisionRectangle(player))
                                 {
@@ -446,7 +445,7 @@ function sendUpdate()
                                 }
                             }
                             // RECTANGLE vs LINE
-                            if (player instanceof gameObject.playerLine)
+                            if (player instanceof GameObject.PlayerLine)
                             {
                                 // Shrink line player.
                                 if (player1.withLineIntersect(player))
@@ -467,12 +466,12 @@ function sendUpdate()
                         });
                     }
                     // Action if other players are type Line.
-                    if (player1 instanceof gameObject.playerLine)
+                    if (player1 instanceof GameObject.PlayerLine)
                     {
                         if (player1.team != player.team)
                         {
                             // LINE vs LINE
-                            if (player instanceof gameObject.playerLine)
+                            if (player instanceof GameObject.PlayerLine)
                             {
                                 if (player1.touchLine(player))
                                 {
@@ -494,7 +493,7 @@ function sendUpdate()
                     }
                 }
                 // Check if any needle exists in current player's screen.
-                if (player1 instanceof gameObject.playerLine)
+                if (player1 instanceof GameObject.PlayerLine)
                 {
                     let needleToClean = [];
 
@@ -506,7 +505,7 @@ function sendUpdate()
                             if (player1.team != player.team)
                             {
                                 // NEEDLE vs LINE
-                                if (player instanceof gameObject.playerLine)
+                                if (player instanceof GameObject.PlayerLine)
                                 {
                                     if (needle.touchOthers(player))
                                     {
@@ -514,7 +513,7 @@ function sendUpdate()
                                     }
                                 }
                                 // NEEDLE vs CIRCLE
-                                else if (player instanceof gameObject.playerCir)
+                                else if (player instanceof GameObject.PlayerCir)
                                 {
                                     if (!player.invisible)
                                     {
@@ -525,7 +524,7 @@ function sendUpdate()
                                     }
                                 }
                                 // NEEDLE vs RECTANGLE
-                                else if (player instanceof gameObject.playerRect)
+                                else if (player instanceof GameObject.PlayerRect)
                                 {
                                     if (needle.touchOthers(player))
                                     {
@@ -543,7 +542,7 @@ function sendUpdate()
                             return;
                         }
                         // Add needles from line player that is far out of game area to the array waiting to be cleaned.
-                        else if (!needle.inScreen(new vector2d(-300, -300), new vector2d(global.canvasWidth + 300, global.canvasHeight + 300)))
+                        else if (!needle.inScreen(new Vector2d(-300, -300), new Vector2d(GLOBAL.canvasWidth + 300, GLOBAL.canvasHeight + 300)))
                         {
                             let indexToDelete = player1.needleArray.indexOf(needle);
                             needleToClean.push(indexToDelete);
@@ -555,7 +554,7 @@ function sendUpdate()
                 }
 
                 // Check if any energy exists in current player's screen. 
-                if (player1 instanceof gameObject.playerCir)
+                if (player1 instanceof GameObject.PlayerCir)
                 {
                     let energyToClean = [];
 
@@ -581,15 +580,15 @@ function sendUpdate()
                                 {
                                     if (energy.shrink())
                                     {
-                                        if (player instanceof gameObject.playerCir)
+                                        if (player instanceof GameObject.PlayerCir)
                                         {
                                             shrinkPlayer('C', player, 1);
                                         }
-                                        if (player instanceof gameObject.playerRect)
+                                        if (player instanceof GameObject.PlayerRect)
                                         {
                                             shrinkPlayer('R', player, 1);
                                         }
-                                        if (player instanceof gameObject.playerLine)
+                                        if (player instanceof GameObject.PlayerLine)
                                         {
                                             shrinkPlayer('L', player, 1);
                                         }
@@ -609,9 +608,9 @@ function sendUpdate()
                                         if (energy.shrink())
                                         {
                                             // Enable bonus stretch mode for rect and line.
-                                            if (!(player instanceof gameObject.playerCir))
+                                            if (!(player instanceof GameObject.PlayerCir))
                                             {
-                                                player.stretch(global.energyBonusRate);
+                                                player.stretch(GLOBAL.energyBonusRate);
                                                 return;
                                             }
                                             player.stretch();
@@ -653,17 +652,17 @@ function sendUpdate()
             // console.log(player.screenTL.x);
 
             // Finding the first line of grip to be drawn on player screen.
-            // grid.push(Global.gridGap - player.screenTL.x % Global.gridGap);
-            // grid.push(Global.gridGap - player.screenTL.y % Global.gridGap);
+            // grid.push(GLOBAL.gridGap - player.screenTL.x % GLOBAL.gridGap);
+            // grid.push(GLOBAL.gridGap - player.screenTL.y % GLOBAL.gridGap);
 
 
             playerInfo.push(player.lifeBar.life); //[0]
-            if (player instanceof gameObject.playerCir)
+            if (player instanceof GameObject.PlayerCir)
             {
                 playerInfo.push('C'); //[1] 
                 playerInfo.push(player.invisibleTimer.toFixed(2)); //[2]
             }
-            else if (player instanceof gameObject.playerLine)
+            else if (player instanceof GameObject.PlayerLine)
             {
                 playerInfo.push('L'); //[1]
                 // TODO: Ammo amount could be sent only when changed.
@@ -671,7 +670,7 @@ function sendUpdate()
 
                 playerInfo.push(player.ammoMode); //[3]
             }
-            else if (player instanceof gameObject.playerRect)
+            else if (player instanceof GameObject.PlayerRect)
             {
                 playerInfo.push('R'); //[1]
                 // TODO: Adding brick mode.
@@ -690,34 +689,34 @@ function sendUpdate()
 }
 
 // Update gameLoop repeatedly.
-setInterval(gameLoop, (1000 / global.fps));
-// setInterval(sendUpdate, (1 / Global.fps)*1000);
+setInterval(gameLoop, (1000 / GLOBAL.fps));
+// setInterval(sendUpdate, (1 / GLOBAL.fps)*1000);
 
 // Initialize point objects with a random position.
 function initGameBoard()
 {
-    let x, y, color, radius = global.pointRadius;
-    for (let i = 0; i < global.maxPoint; i++)
+    let x, y, color, radius = GLOBAL.pointRadius;
+    for (let i = 0; i < GLOBAL.maxPoint; i++)
     {
         color = randomColor();
         // Assign a random position within valid range.
-        x = Math.random() * (global.canvasWidth - radius);
-        y = Math.random() * (global.canvasHeight - radius);
+        x = Math.random() * (GLOBAL.canvasWidth - radius);
+        y = Math.random() * (GLOBAL.canvasHeight - radius);
 
         // Check for overlapping points. (Not really necessary)
         // if(i != 0){
         //     // Note: This does not actually prevent all overlapping, but enough.
         //     for(let j=0; j< PointArray.length; j++){
         //         if(new Vector2d(x,y).distance(new Vector2d(PointArray[j].x, PointArray[j].y)) < radius * 2) {
-        //             x = Math.random() * (Global.canvasWidth - radius);
-        //             y = Math.random() * (Global.canvasHeight - radius);
+        //             x = Math.random() * (GLOBAL.canvasWidth - radius);
+        //             y = Math.random() * (GLOBAL.canvasHeight - radius);
         //             // j-- to recheck overlapping.
         //             j--;
         //         }
         //     }
         // }
 
-        pointsArray.push(new gameObject.gamePoint(x, y, color, radius));
+        pointsArray.push(new GameObject.GamePoint(x, y, color, radius));
         // PointArray.push(new GameObject.gamePoint(100, 100, color, radius)); // Debugging
     }
 }
@@ -821,32 +820,32 @@ function initPosition(teamNum)
     // Team 0: random position in top left corner.
     if (teamNum == 0)
     {
-        xRange = new vector2d(boundDist, boundDist + range);
-        yRange = new vector2d(boundDist, boundDist + range);
+        xRange = new Vector2d(boundDist, boundDist + range);
+        yRange = new Vector2d(boundDist, boundDist + range);
     }
     // Team 1: random position in top right corner.
     else if (teamNum == 1)
     {
-        xRange = new vector2d(global.canvasWidth - (boundDist + range), global.canvasWidth - boundDist);
-        yRange = new vector2d(boundDist, boundDist + range);
+        xRange = new Vector2d(GLOBAL.canvasWidth - (boundDist + range), GLOBAL.canvasWidth - boundDist);
+        yRange = new Vector2d(boundDist, boundDist + range);
     }
     // Team 3: random position in bottom left corner.
     else if (teamNum == 2)
     {
-        xRange = new vector2d(boundDist, boundDist + range);
-        yRange = new vector2d(global.canvasHeight - (boundDist + range), global.canvasHeight - boundDist);
+        xRange = new Vector2d(boundDist, boundDist + range);
+        yRange = new Vector2d(GLOBAL.canvasHeight - (boundDist + range), GLOBAL.canvasHeight - boundDist);
     }
     // Team 4: random position in bottom right corner.
     else if (teamNum == 3)
     {
-        xRange = new vector2d(global.canvasWidth - (boundDist + range), global.canvasWidth - boundDist);
-        yRange = new vector2d(global.canvasHeight - (boundDist + range), global.canvasHeight - boundDist);
+        xRange = new Vector2d(GLOBAL.canvasWidth - (boundDist + range), GLOBAL.canvasWidth - boundDist);
+        yRange = new Vector2d(GLOBAL.canvasHeight - (boundDist + range), GLOBAL.canvasHeight - boundDist);
     }
 
     // Assign random x and y values within a rectangular area on the canvas.
     x = Math.floor(Math.random() * (xRange.y - xRange.x)) + xRange.x;
     y = Math.floor(Math.random() * (yRange.y - yRange.x)) + yRange.x;
-    return new vector2d(x, y);
+    return new Vector2d(x, y);
 }
 
 // Return team colour.

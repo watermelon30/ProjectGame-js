@@ -1,23 +1,27 @@
-//Requiring shared library.
+// Requiring shared library.
 var Vector2d = require('./Vector.js');
-var Global = require('./Global.js');
-var Collision = require('./Collision.js');
-var dt =  1.0 / Global.fps //Delta time.
+const GLOBAL = require('./Global.js');
+const COLLISION = require('./Collision.js');
+var dt = 1.0 / GLOBAL.fps // Delta time.
 
 
-//Base class of game objects in the canvas.
-class gameObject{
-    constructor(x, y, color){
-        //socket.id
+// Base class of game objects in the canvas.
+class GameObject
+{
+    constructor(x, y, color)
+    {
+        // socket.id
         this.color = color;
         this.x = x;
-        this.y = y;    
+        this.y = y;
     }
 }
 
-//Health Amount for rectangle: 2000, Circle: 1500, Line: 1000
-class lifeBar{
-    constructor(lifeAmount){
+// Health Amount for rectangle: 2000, Circle: 1500, Line: 1000
+class LifeBar
+{
+    constructor(lifeAmount)
+    {
         this.life = lifeAmount;
         this.maximum = lifeAmount;
     }
@@ -25,9 +29,10 @@ class lifeBar{
      * Reduce health amount.
      * @returns: true if health amount is still > 0, false otherwise.
      */
-    beingAttacked(){
+    beingAttacked()
+    {
         this.life--;
-        if(this.life < 0) return false;
+        if (this.life < 0) return false;
         else return true;
     }
 
@@ -35,8 +40,10 @@ class lifeBar{
      * Increase health amount.
      * @returns: true if health amount is still smaller than maximum, false otherwise.
      */
-    recover(){
-        if(this.life < this.maximum){
+    recover()
+    {
+        if (this.life < this.maximum)
+        {
             this.life++;
             return true;
         }
@@ -44,18 +51,20 @@ class lifeBar{
     }
 }
 
-//Public point object.
-class gamePoint extends gameObject{
-    constructor(x, y, color, radius){
+// Public point object.
+class GamePoint extends GameObject
+{
+    constructor(x, y, color, radius)
+    {
         super(x, y, color);
         this.radius = radius;
 
-        //Velocity of a point object.
-        this.velocity = new Vector2d(0,0);
+        // Velocity of a point object.
+        this.velocity = new Vector2d(0, 0);
 
         this.corner = 0;
 
-        //stuck: Check if the point has no where to go.
+        // stuck: Check if the point has no where to go.
         this.stuck = false;
     }
 
@@ -64,10 +73,13 @@ class gamePoint extends gameObject{
      * @param othersScreenTL @param othersScreenBR: vectors that describe the boundaries of the player screen  
      * @returns: true if the point is inside the screen, false otherwise.
      */
-    inScreen(screenTL, screenBR){
-        if(this.x >= screenTL.x - this.radius && this.x <= screenBR.x + this.radius){
-            if(this.y >= screenTL.y - this.radius && this.y <= screenBR.y + this.radius){
-                //Inside screen
+    inScreen(screenTL, screenBR)
+    {
+        if (this.x >= screenTL.x - this.radius && this.x <= screenBR.x + this.radius)
+        {
+            if (this.y >= screenTL.y - this.radius && this.y <= screenBR.y + this.radius)
+            {
+                // Inside screen
                 return true;
             }
         }
@@ -79,27 +91,32 @@ class gamePoint extends gameObject{
      * @param player: player (Rectangle/Line/Circle) object.
      * @returns: false if the point is crushed by a Rectangle player object. True otherwise.
      */
-    newSpeed(player){
-        //Cannot collide with Line player.
-        if(!(player instanceof playerLine)){
-            if(player.collisionCircle(new Vector2d(this.x, this.y), this.radius)){
-                //If the point touches a boundary and the shape, it is stuck.
-                if(this.corner) this.stuck = true;
+    newSpeed(player)
+    {
+        // Cannot collide with Line player.
+        if (!(player instanceof PlayerLine))
+        {
+            if (player.collisionCircle(new Vector2d(this.x, this.y), this.radius))
+            {
+                // If the point touches a boundary and the shape, it is stuck.
+                if (this.corner) this.stuck = true;
 
-                //b: the extra velocity from colliding with other player object.
+                // b: the extra velocity from colliding with other player object.
                 let b = player.bounce(this);
-                //Point being crushed. Assign new position.
-                if(b.x == Infinity){
+                // Point being crushed. Assign new position.
+                if (b.x == Infinity)
+                {
                     this.respawn();
                     return false;
                 }
 
-                //Add up the extra velocity to the current velocity.
+                // Add up the extra velocity to the current velocity.
                 this.velocity.x += 2 * b.x;
                 this.velocity.y += 2 * b.y;
 
-                //Assigning new speed for a point object with invalid speed value.
-                if(isNaN(this.velocity.x) || isNaN(this.velocity.y)){
+                // Assigning new speed for a point object with invalid speed value.
+                if (isNaN(this.velocity.x) || isNaN(this.velocity.y))
+                {
                     this.respawn();
                     return false;
                 }
@@ -109,64 +126,73 @@ class gamePoint extends gameObject{
         return true;
     }
 
-    //Assign a new life for the point object. 
-    respawn(){
-        //Assign random valid position for the point object.
-        let newPos = randomPointPosition(Global.pointRadius);
+    // Assign a new life for the point object. 
+    respawn()
+    {
+        // Assign random valid position for the point object.
+        let newPos = randomPointPosition(GLOBAL.pointRadius);
         this.x = newPos.x;
         this.y = newPos.y;
         //Initialize the point attribute. 
-        this.velocity = new  Vector2d(0,0);
-        this.radius = Global.pointRadius;
+        this.velocity = new Vector2d(0, 0);
+        this.radius = GLOBAL.pointRadius;
     }
 
-    //Calculating the new position.     
-    newPos(){
+    // Calculating the new position.     
+    newPos()
+    {
         this.stuck = false;
-        //Prevent from all points stuck in a corner.
-        if(this.corner > 1){
+        // Prevent from all points stuck in a corner.
+        if (this.corner > 1)
+        {
             this.velocity.x = Math.random() * 15;
             this.velocity.y = Math.random() * 15;
         }
-        if(this.velocity.x != 0 || this.velocity.y != 0){
+        if (this.velocity.x != 0 || this.velocity.y != 0)
+        {
             this.corner = 0;
 
-            //Bounce off the boundary when the point touches the boundary of canvas.
+            // Bounce off the boundary when the point touches the boundary of canvas.
 
-            //Touch right side of boundary
-            if(this.x >= Global.canvasWidth - this.radius) {
-                this.x = Global.canvasWidth - this.radius;
+            // Touch right side of boundary
+            if (this.x >= GLOBAL.canvasWidth - this.radius)
+            {
+                this.x = GLOBAL.canvasWidth - this.radius;
                 this.velocity.x = -this.velocity.x;
                 this.corner++;
             }
-            //Touch left side of boundary
-            else if(this.x <= this.radius) {
+            // Touch left side of boundary
+            else if (this.x <= this.radius)
+            {
                 this.x = this.radius;
                 this.velocity.x = -this.velocity.x;
                 this.corner++;
             }
-            //Touch top of the boundary. 
-            if(this.y <= this.radius){ 
+            // Touch top of the boundary. 
+            if (this.y <= this.radius)
+            {
                 this.y = this.radius;
                 this.velocity.y = -this.velocity.y;
                 this.corner++;
             }
-            //Touch bottom of the boundary.
-            else if(this.y >=  Global.canvasHeight - this.radius) {
-                this.y =  Global.canvasHeight - this.radius;
+            // Touch bottom of the boundary.
+            else if (this.y >= GLOBAL.canvasHeight - this.radius)
+            {
+                this.y = GLOBAL.canvasHeight - this.radius;
                 this.velocity.y = -this.velocity.y;
                 this.corner++;
             }
-            //Movement
+            // Movement
             this.x += this.velocity.x;
             this.y += this.velocity.y;
 
-            //Apply friction.
+            // Apply friction.
             this.velocity.x *= 0.985;
             this.velocity.y *= 0.985;
-            
-            //Force stop when velocity is small.
-            if(this.velocity.distance(new Vector2d(0,0)) < 0.2) {
+
+            // Force stop when velocity is small.
+            if (this.velocity.distance(new Vector2d(0, 0)) < 0.2)
+            {
                 this.velocity.x = 0;
                 this.velocity.y = 0;
             }
@@ -177,27 +203,32 @@ class gamePoint extends gameObject{
      * Shrunk if eaten by circle or line player.
      * @returns: true if the point radius is still greater than 5. false otherwise. 
      */
-    shrink(){
-        if(this.radius > 5){
+    shrink()
+    {
+        if (this.radius > 5)
+        {
             this.radius--;
             return true;
-        } else {
+        } else
+        {
             this.respawn();
             return false;
         }
     }
 }
 
-//Needle object owned by a Line player.
-class gameNeedle extends gameObject{
-    constructor(x, y, color, length, direction, speed){
+// Needle object owned by a Line player.
+class GameNeedle extends GameObject
+{
+    constructor(x, y, color, length, direction, speed)
+    {
         super(x, y, color);
-        //Make length of a needle shorter than the line player.
+        // Make length of a needle shorter than the line player.
         this.length = length * 0.6;
         this.direction = direction;
-        //Adding speed to the direction variable.
+        // Adding speed to the direction variable.
         this.direction.x *= speed;
-        this.direction.y *= speed; 
+        this.direction.y *= speed;
         this.endPoint = getLine(this.x, this.y, this.direction, this.length);
     }
 
@@ -206,43 +237,52 @@ class gameNeedle extends gameObject{
      * @param othersScreenTL @param othersScreenBR: vectors that describe the boundaries of the player screen  
      * @returns: true if the needle is inside the screen, false otherwise.
      */
-    inScreen(screenTL, screenBR){
-        if(this.x >= screenTL.x - this.length && this.x <= screenBR.x + this.length){
-            if(this.y >= screenTL.y - this.length && this.y <= screenBR.y + this.length){
+    inScreen(screenTL, screenBR)
+    {
+        if (this.x >= screenTL.x - this.length && this.x <= screenBR.x + this.length)
+        {
+            if (this.y >= screenTL.y - this.length && this.y <= screenBR.y + this.length)
+            {
                 return true;
             }
         }
         return false;
     }
 
-    //Assigning new position.
-    newPos(){
-        //Speed has been added in the direction vector.
+    // Assigning new position.
+    newPos()
+    {
+        // Speed has been added in the direction vector.
         this.x += this.direction.x;
         this.y += this.direction.y;
         this.endPoint = getLine(this.x, this.y, this.direction, this.length);
     }
 
-    //Check intersection with other players.
+    // Check intersection with other players.
     /**
      * @param shapes: player object.
      * @returns: true if the intersected with player object. false it not. 
      */
-    touchOthers(shapes){
-        //calling collision function depends on the type of player.
-        if(shapes instanceof playerCir){
+    touchOthers(shapes)
+    {
+        // Calling collision function depends on the type of player.
+        if (shapes instanceof PlayerCir)
+        {
             return shapes.collisionCircle(new Vector2d(this.x, this.y), 0)
         }
-        if(shapes instanceof playerRect){
+        if (shapes instanceof PlayerRect)
+        {
             return shapes.withLineIntersect(this);
         }
         return shapes.touchLine(this);
     }
 }
 
-//Energy object owned by Circle player.
-class gameEnergy extends gameObject{
-    constructor(x, y, color, direction){
+// Energy object owned by Circle player.
+class GameEnergy extends GameObject
+{
+    constructor(x, y, color, direction)
+    {
         super(x, y, color);
         this.radius = 10;
         this.direction = direction;
@@ -254,50 +294,60 @@ class gameEnergy extends gameObject{
      * Check if the energy object is inside a player's screen.
      * @param othersScreenTL @param othersScreenBR: vectors that describe the boundaries of the player screen  
      * @returns: true if the energy is inside the screen, false otherwise.
-     */    
-    inScreen(screenTL, screenBR){
-        if(this.x >= screenTL.x - this.radius && this.x <= screenBR.x + this.radius){
-            if(this.y >= screenTL.y - this.radius && this.y <= screenBR.y + this.radius){
+     */
+    inScreen(screenTL, screenBR)
+    {
+        if (this.x >= screenTL.x - this.radius && this.x <= screenBR.x + this.radius)
+        {
+            if (this.y >= screenTL.y - this.radius && this.y <= screenBR.y + this.radius)
+            {
                 return true;
             }
         }
         return false;
     }
 
-    //Assigning new position
-    newPos(){
-        if(this.velocity.x != 0 || this.velocity.y != 0){
-            //Bounce off the when the point touches the boundary of canvas.
+    // Assigning new position
+    newPos()
+    {
+        if (this.velocity.x != 0 || this.velocity.y != 0)
+        {
+            // Bounce off the when the point touches the boundary of canvas.
 
-            //Touch right side of boundary
-            if(this.x >= Global.canvasWidth - this.radius) {
-                this.x = Global.canvasWidth - this.radius;
+            // Touch right side of boundary
+            if (this.x >= GLOBAL.canvasWidth - this.radius)
+            {
+                this.x = GLOBAL.canvasWidth - this.radius;
                 this.velocity.x = -this.velocity.x;
             }
-            //Touch left side of boundary
-            else if(this.x <= this.radius) {
+            // Touch left side of boundary
+            else if (this.x <= this.radius)
+            {
                 this.x = this.radius;
                 this.velocity.x = -this.velocity.x;
             }
-            //Touch top of the boundary. 
-            if(this.y <= this.radius){ 
+            // Touch top of the boundary. 
+            if (this.y <= this.radius)
+            {
                 this.y = this.radius;
                 this.velocity.y = -this.velocity.y;
             }
-            //Touch bottom of the boundary.
-            else if(this.y >=  Global.canvasHeight - this.radius) {
-                this.y =  Global.canvasHeight- this.radius;
+            // Touch bottom of the boundary.
+            else if (this.y >= GLOBAL.canvasHeight - this.radius)
+            {
+                this.y = GLOBAL.canvasHeight - this.radius;
                 this.velocity.y = -this.velocity.y;
             }
             this.x += this.velocity.x;
             this.y += this.velocity.y;
 
-            //Apply friction.
+            // Apply friction.
             this.velocity.x *= 0.985;
             this.velocity.y *= 0.985;
-            
-            //Force stop when velocity is small.
-            if(this.velocity.distance(new Vector2d(0,0)) < 0.2) {
+
+            // Force stop when velocity is small.
+            if (this.velocity.distance(new Vector2d(0, 0)) < 0.2)
+            {
                 this.velocity.x = 0;
                 this.velocity.y = 0;
             }
@@ -309,16 +359,22 @@ class gameEnergy extends gameObject{
      * @param player: player object.
      * @returns: true if absorbed is true, false otherwise.
      */
-    absorb(player){
-        if(!this.absorbed){
-            if(player instanceof playerLine){
-                if(Collision.lineCirIntersect(this, new Vector2d(player.x, player.y), player.endPoint)){
+    absorb(player)
+    {
+        if (!this.absorbed)
+        {
+            if (player instanceof PlayerLine)
+            {
+                if (COLLISION.lineCirIntersect(this, new Vector2d(player.x, player.y), player.endPoint))
+                {
                     this.absorbed = true;
                     return true;
                 }
             }
-            else {
-                if(player.collisionCircle(new Vector2d(this.x, this.y), this.radius)){
+            else
+            {
+                if (player.collisionCircle(new Vector2d(this.x, this.y), this.radius))
+                {
                     this.absorbed = true;
                     return true;
                 }
@@ -333,12 +389,15 @@ class gameEnergy extends gameObject{
      * Will only be called when absorbed == true
      * @returns: true if shrinking effect is still going, false otherwise
      */
-    shrink(){
-        if(this.radius > 0){
+    shrink()
+    {
+        if (this.radius > 0)
+        {
             this.radius -= 1;
         }
-        //The absorbing timer is to allow longer damages/heals for a player who touched the energy object.
-        if(this.absorbingTime < 20){
+        // The absorbing timer is to allow longer damages/heals for a player who touched the energy object.
+        if (this.absorbingTime < 20)
+        {
             this.absorbingTime++;
             return true;
         }
@@ -346,9 +405,11 @@ class gameEnergy extends gameObject{
     }
 }
 
-//Base class for player object.
-class gamePlayer{
-    constructor(id, x, y,color, screenHeight, screenWidth, team){
+// Base class for player object.
+class GamePlayer
+{
+    constructor(id, x, y, color, screenHeight, screenWidth, team)
+    {
         this.id = id;
         this.x = x;
         this.y = y;
@@ -357,30 +418,32 @@ class gamePlayer{
         this.screenWidth = screenWidth;
         this.team = team;
         this.id = id;
-        this.target = new Vector2d(0,0);
+        this.target = new Vector2d(0, 0);
     }
 }
 
-//Circle player object class.
-class playerCir extends gamePlayer{
-    constructor(id, x, y, color, screenWidth, screenHeight, radius, team){
-        super(id,x,y,color, screenHeight, screenWidth, team);
+// Circle player object class.
+class PlayerCir extends GamePlayer
+{
+    constructor(id, x, y, color, screenWidth, screenHeight, radius, team)
+    {
+        super(id, x, y, color, screenHeight, screenWidth, team);
         this.type = "Circle";
 
         this.radius = radius;
         this.alpha = 1.0;
 
         //playerVelo is the actual velocity of a player after boundary checking.
-        this.playerVelo = new Vector2d(0,0);
-        
+        this.playerVelo = new Vector2d(0, 0);
+
         //velocity is the initial given velocity.
-        this.velocity = new Vector2d(0,0);
+        this.velocity = new Vector2d(0, 0);
         //screenTL/BR: Player screen boundary vector.
-        this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
-        this.screenBR =  new Vector2d(x + screenWidth/2, y + screenHeight/2);
+        this.screenTL = new Vector2d(x - screenWidth / 2, y - screenHeight / 2);
+        this.screenBR = new Vector2d(x + screenWidth / 2, y + screenHeight / 2);
         this.invisibleTimer = 10;
         this.invisible = false;
-        this.lifeBar = new lifeBar(Global.circleLifeAmount);
+        this.lifeBar = new LifeBar(GLOBAL.circleLifeAmount);
         this.energyArray = [];
     }
 
@@ -389,9 +452,12 @@ class playerCir extends gamePlayer{
      * @param othersScreenTL @param othersScreenBR: vectors that describe the boundaries of the player screen  
      * @returns: true if the circle is inside the screen, false otherwise.
      */
-    inScreen(othersScreenTL, othersScreenBR){
-        if(this.x >= othersScreenTL.x - this.radius && this.x <= othersScreenBR.x + this.radius){
-            if(this.y >= othersScreenTL.y - this.radius && this.y <= othersScreenBR.y + this.radius){
+    inScreen(othersScreenTL, othersScreenBR)
+    {
+        if (this.x >= othersScreenTL.x - this.radius && this.x <= othersScreenBR.x + this.radius)
+        {
+            if (this.y >= othersScreenTL.y - this.radius && this.y <= othersScreenBR.y + this.radius)
+            {
                 return true;
             }
         }
@@ -401,34 +467,40 @@ class playerCir extends gamePlayer{
     /**
      * Assigning new position for Circle. 
      */
-    newPos(){
+    newPos()
+    {
         this.velocity = playerMovement(this.target.x, this.target.y, this.screenWidth, this.screenHeight);
         this.playerVelo = checkBound(this.x, this.y, this.velocity, this.radius);
         this.x += this.playerVelo.x;
         this.y += this.playerVelo.y;
         //Setting new screen boundary vectors
-        this.screenTL.x = this.x - this.screenWidth/2;
-        this.screenTL.y = this.y - this.screenHeight/2;
-        this.screenBR.x = this.x + this.screenWidth/2;
-        this.screenBR.y = this.y + this.screenHeight/2;
+        this.screenTL.x = this.x - this.screenWidth / 2;
+        this.screenTL.y = this.y - this.screenHeight / 2;
+        this.screenBR.x = this.x + this.screenWidth / 2;
+        this.screenBR.y = this.y + this.screenHeight / 2;
 
         //Invisible mode
-        if(this.invisible == true){
+        if (this.invisible == true)
+        {
             this.alpha = 0.5;
             //If invisibleTimer is 0, disable invisible mode.
-            if(this.invisibleTimer >= 0.02){
-                this.invisibleTimer-=0.02;
+            if (this.invisibleTimer >= 0.02)
+            {
+                this.invisibleTimer -= 0.02;
             }
-            else {
+            else
+            {
                 this.invisible = false;
                 this.invisibleTimer = 0;
             }
-        } else {
+        } else
+        {
             //Restart invisibleTimer
             this.alpha = 1;
 
             //Fueling invisible timer if the maximum is not reached yet.
-            if(this.invisibleTimer < Global.circleMaxInvMode-0.01){
+            if (this.invisibleTimer < GLOBAL.circleMaxInvMode - 0.01)
+            {
                 this.invisibleTimer += 0.01;
             }
         }
@@ -440,10 +512,12 @@ class playerCir extends gamePlayer{
      * @param centreVector: vector that represents the centre of the point.
      * @returns: true if point is inside the circle, false otherwise.
      */
-    eatPoint(centreVector){
-        if(centreVector.distance(new Vector2d(this.x, this.y)) <= this.radius){
+    eatPoint(centreVector)
+    {
+        if (centreVector.distance(new Vector2d(this.x, this.y)) <= this.radius)
+        {
             return true;
-        } 
+        }
         return false;
     }
 
@@ -453,10 +527,12 @@ class playerCir extends gamePlayer{
      * @param radius: radius of the circle.
      * @returns: true if collided, false otherwise.
      */
-    collisionCircle(centreVector,  radius){
-        //Collision == true if the distance from the centre of one circle 
-        //to the centre of another circle is smaller than the sum of two circles' radius.
-        if(centreVector.distance(new Vector2d(this.x, this.y)) <= radius + this.radius){
+    collisionCircle(centreVector, radius)
+    {
+        // Collision == true if the distance from the centre of one circle 
+        // to the centre of another circle is smaller than the sum of two circles' radius.
+        if (centreVector.distance(new Vector2d(this.x, this.y)) <= radius + this.radius)
+        {
             return true;
         }
         return false;
@@ -467,8 +543,9 @@ class playerCir extends gamePlayer{
      * @param line: line object.
      * @returns: true if collided, false otherwise.
      */
-    withLineIntersect(line){
-        return Collision.lineCirIntersect(this, new Vector2d(line.x, line.y), line.endPoint);
+    withLineIntersect(line)
+    {
+        return COLLISION.lineCirIntersect(this, new Vector2d(line.x, line.y), line.endPoint);
     }
 
     /**
@@ -476,43 +553,47 @@ class playerCir extends gamePlayer{
      * @param point: public point object.
      * @returns: vector that specifies the new speed for the point object.
      */
-    bounce(point){
+    bounce(point)
+    {
         var d, velocityVector, velocityToPoint, c, l;
 
-        //c: To control the force applied onto the point.
+        // c: To control the force applied onto the point.
         c = 0.8;
-    
-        //d: Normalized direction vector calculated by getting the centre of a player to the centre of a point.
+
+        // d: Normalized direction vector calculated by getting the centre of a player to the centre of a point.
         d = new Vector2d(point.x - this.x, point.y - this.y).normalise();
-    
-        //Velocity vector of the difference of velocities between player and point.
+
+        // Velocity vector of the difference of velocities between player and point.
         velocityVector = new Vector2d(this.playerVelo.x - point.velocity.x, this.playerVelo.y - point.velocity.y);
-    
-        //l: Length of velocityVector projected onto direction d.
+
+        // l: Length of velocityVector projected onto direction d.
         l = velocityVector.dot(d);
 
-        //Assign l to be 0 to prevent situation where angle of velocityVector and d > 90,
-        //which will make the point go to the same direction with player.
-        if(l < 0) {
+        // Assign l to be 0 to prevent situation where angle of velocityVector and d > 90,
+        // which will make the point go to the same direction with player.
+        if (l < 0)
+        {
             l = 0;
         }
-    
-        //Assign velocity in the direction from circle to point.
+
+        // Assign velocity in the direction from circle to point.
         velocityToPoint = new Vector2d(d.x * l * c, d.y * l * c);
 
         return velocityToPoint;
     }
 
-    
+
     /**
      * Return false if player reaches minimum size.
      * @param amount: float that specifies the amount of shrinking. (1 means default rate). 
      * @returns: true if valid shrink, false otherwise.
      */
-    shrink(amount){
-        if(this.radius > Global.circleMinR){
-            this.radius *= (1-Global.circleShrinkRate * amount);
-            return true ;
+    shrink(amount)
+    {
+        if (this.radius > GLOBAL.circleMinR)
+        {
+            this.radius *= (1 - GLOBAL.circleShrinkRate * amount);
+            return true;
         }
         return false;
     }
@@ -521,17 +602,20 @@ class playerCir extends gamePlayer{
      * Stretch the circle size if hasn't reached maximum.
      * @returns: integer specifying the type of stretch.
      */
-    stretch(){
-        if(this.lifeBar.recover()){
-            //return 1 as recovering health amount
+    stretch()
+    {
+        if (this.lifeBar.recover())
+        {
+            // return 1 as recovering health amount
             return 1;
         }
-        if(this.radius < Global.circleMaxR){
-            this.radius *= (1+Global.circleStretchRate);
-            //return 2 as gaining mass.
+        if (this.radius < GLOBAL.circleMaxR)
+        {
+            this.radius *= (1 + GLOBAL.circleStretchRate);
+            // return 2 as gaining mass.
             return 2;
         }
-        //return 3 as no valid stretch.
+        // return 3 as no valid stretch.
         return 3;
     }
 
@@ -539,16 +623,19 @@ class playerCir extends gamePlayer{
      * Called when circle reaches minimum size and is being attacked.
      * @returns: true if a player is still alive, false if player died.
      */
-    bleeding(){
+    bleeding()
+    {
         return this.lifeBar.beingAttacked();
     }
 
     /**
      * Function to enable invisible mode.
      */
-    unseen(){
+    unseen()
+    {
         //Can only enable invisible with timer greater than 5 seconds
-        if(this.invisibleTimer > 5){
+        if (this.invisibleTimer > 5)
+        {
             this.invisible = true;
         }
         //     console.log("Cannot be invisible"); //DEBUG
@@ -557,17 +644,19 @@ class playerCir extends gamePlayer{
     /**
      * Emit energy object for feeding teammates/attacking enemy.
      */
-    emit(){
-        if(this.radius > Global.circleMinR){
+    emit()
+    {
+        if (this.radius > GLOBAL.circleMinR)
+        {
             let direction = this.playerVelo.normalise(),
                 energyX = this.x + direction.x * this.radius,
                 energyY = this.y + direction.y * this.radius;
 
             //Adding an energy object.
-            this.energyArray.push(new gameEnergy(energyX, energyY, this.color, direction));
+            this.energyArray.push(new GameEnergy(energyX, energyY, this.color, direction));
 
             //Shrink the circle
-            this.radius--;    
+            this.radius--;
         }
     }
 
@@ -575,29 +664,33 @@ class playerCir extends gamePlayer{
      * Clean energy that are out of bound by removing from the array. Will wait for garbage collection.
      * @param indexToClear: array that contains indexes of energy objects to be cleaned. 
      */
-    cleanEnergy(indexToClear){
-        indexToClear.forEach(index => {
-            this.energyArray.splice(index, 1);            
+    cleanEnergy(indexToClear)
+    {
+        indexToClear.forEach(index =>
+        {
+            this.energyArray.splice(index, 1);
         });
     }
 }
 
-//Line player object class.
-class playerLine extends gamePlayer{
-    constructor(id, x, y, color, screenWidth, screenHeight, length, team){
-        super(id, x,y,color, screenHeight, screenWidth, team);
+// Line player object class.
+class PlayerLine extends GamePlayer
+{
+    constructor(id, x, y, color, screenWidth, screenHeight, length, team)
+    {
+        super(id, x, y, color, screenHeight, screenWidth, team);
         this.type = "Line";
         this.length = length;
-        this.direction = new Vector2d(1,1);
+        this.direction = new Vector2d(1, 1);
         this.needleArray = [];
-        this.playerVelo = new Vector2d(0,0);
-        this.velocity = new Vector2d(0,0);
-        this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
-        this.screenBR = new Vector2d(x + screenWidth/2, y + screenHeight/2);
+        this.playerVelo = new Vector2d(0, 0);
+        this.velocity = new Vector2d(0, 0);
+        this.screenTL = new Vector2d(x - screenWidth / 2, y - screenHeight / 2);
+        this.screenBR = new Vector2d(x + screenWidth / 2, y + screenHeight / 2);
         this.endPoint = getLine(this.x, this.y, this.direction, this.length);
-        this.grid = new Vector2d(this.x % Global.gridGap, this.y % Global.gridGap);
+        this.grid = new Vector2d(this.x % GLOBAL.gridGap, this.y % GLOBAL.gridGap);
         this.emit = false;
-        this.lifeBar = new lifeBar(Global.lineLifeAmount);
+        this.lifeBar = new LifeBar(GLOBAL.lineLifeAmount);
         this.ammo = 100;
 
         //Gathering ammo (true) OR increase size/life (false) when points eaten.
@@ -609,9 +702,12 @@ class playerLine extends gamePlayer{
      * @param othersScreenTL @param othersScreenBR: vectors that describe the boundaries of the player screen  
      * @returns: true if the line is inside the screen, false otherwise.
      */
-    inScreen(othersScreenTL, othersScreenBR){
-        if(this.x >= othersScreenTL.x - this.length && this.x <= othersScreenBR.x + this.length){
-            if(this.y >= othersScreenTL.y - this.length && this.y <= othersScreenBR.y + this.length){
+    inScreen(othersScreenTL, othersScreenBR)
+    {
+        if (this.x >= othersScreenTL.x - this.length && this.x <= othersScreenBR.x + this.length)
+        {
+            if (this.y >= othersScreenTL.y - this.length && this.y <= othersScreenBR.y + this.length)
+            {
                 return true;
             }
         }
@@ -622,32 +718,36 @@ class playerLine extends gamePlayer{
      * Assign new position for the Line object and handle needle emission
      * @returns: false when a player tries to emit needle without ammo. Otherwise, return true.
      */
-    newPos(){
+    newPos()
+    {
         this.velocity = playerMovement(this.target.x, this.target.y, this.screenWidth, this.screenHeight);
 
-        //Get a copy of the velocity vector to be the direction vector if velocity is not 0.
-        //If the velocity is 0, the line will be heading toward the same direction as when the velocity was not 0.
-        if(this.velocity.distance(new Vector2d(0,0))!= 0){
-            this.direction = Object.assign({},this.velocity);
+        // Get a copy of the velocity vector to be the direction vector if velocity is not 0.
+        // If the velocity is 0, the line will be heading toward the same direction as when the velocity was not 0.
+        if (this.velocity.distance(new Vector2d(0, 0)) != 0)
+        {
+            this.direction = Object.assign({}, this.velocity);
         }
-        
+
         this.playerVelo = checkBound(this.x, this.y, this.velocity, 0);
         this.x += this.playerVelo.x;
         this.y += this.playerVelo.y;
-        //Finding the end point of the line.
+        // Finding the end point of the line.
         this.endPoint = getLine(this.x, this.y, this.direction, this.length);
-        
-        this.screenTL.x = this.x - this.screenWidth/2;
-        this.screenTL.y = this.y - this.screenHeight/2;
-        this.screenBR.x = this.x + this.screenWidth/2;
-        this.screenBR.y = this.y + this.screenHeight/2;
-        this.grid.x = this.x % Global.gridGap;
-        this.grid.y = this.y % Global.gridGap;
 
-        if(this.emit == true){
-            //Emit needle when ammo != 0
-            if(this.ammo > 0){
-                this.needleArray.push(new gameNeedle(this.x, this.y,this.color,this.length,this.velocity.normalise(),8));
+        this.screenTL.x = this.x - this.screenWidth / 2;
+        this.screenTL.y = this.y - this.screenHeight / 2;
+        this.screenBR.x = this.x + this.screenWidth / 2;
+        this.screenBR.y = this.y + this.screenHeight / 2;
+        this.grid.x = this.x % GLOBAL.gridGap;
+        this.grid.y = this.y % GLOBAL.gridGap;
+
+        if (this.emit == true)
+        {
+            // Emit needle when ammo != 0
+            if (this.ammo > 0)
+            {
+                this.needleArray.push(new GameNeedle(this.x, this.y, this.color, this.length, this.velocity.normalise(), 8));
                 this.ammo--;
             }
             else return false;
@@ -660,12 +760,10 @@ class playerLine extends gamePlayer{
      * @param shapes: Rectangle or Circle player object 
      * @returns: true if collided, false if not.
      */
-    touchOthers(shapes){
+    touchOthers(shapes)
+    {
         return shapes.withLineIntersect(this);
     }
-
-
-
 
     /**
      * Check the collision with public point object.
@@ -674,9 +772,11 @@ class playerLine extends gamePlayer{
      * @param radius: radius of the point.
      * @returns: true if collided, false if not.
      */
-    eatPoint(pointCentre, radius){
+    eatPoint(pointCentre, radius)
+    {
         let lineHead = new Vector2d(this.x, this.y);
-        if(lineHead.distance(pointCentre) <= radius){
+        if (lineHead.distance(pointCentre) <= radius)
+        {
             return true;
         }
         return false;
@@ -687,10 +787,11 @@ class playerLine extends gamePlayer{
      * @param opposite: The Line player object to check with.
      * @returns: true if intersected, false if not.
      */
-    touchLine(opposite){
+    touchLine(opposite)
+    {
         let thisHead = new Vector2d(this.x, this.y),
             oppHead = new Vector2d(opposite.x, opposite.y);
-        return Collision.lineIntersect(thisHead, this.endPoint, oppHead, opposite.endPoint);
+        return COLLISION.lineIntersect(thisHead, this.endPoint, oppHead, opposite.endPoint);
     }
 
     /**
@@ -698,13 +799,15 @@ class playerLine extends gamePlayer{
      * @param amount:To specify the extra amount of shrinking.
      * @returns: true if shrinking successfully, false otherwise. 
      */
-    shrink(amount){
-        if(this.length > Global.lineMinLength){
-            this.length *= (1 - Global.lineShrinkRate * amount);
+    shrink(amount)
+    {
+        if (this.length > GLOBAL.lineMinLength)
+        {
+            this.length *= (1 - GLOBAL.lineShrinkRate * amount);
             return true;
-        } else {
-            return false;
         }
+
+        return false;
     }
 
     /**
@@ -713,29 +816,35 @@ class playerLine extends gamePlayer{
      * bonus will only be given when absorbing energy from teammate Circle.
      * @returns: integer specifying the type of stretch
      */
-    stretch(bonus){
-        if(!this.ammoMode){
-            if(this.lifeBar.recover()){
-                //Double the recover amount.
-                if(bonus > 1) this.lifeBar.recover();
+    stretch(bonus)
+    {
+        if (!this.ammoMode)
+        {
+            if (this.lifeBar.recover())
+            {
+                // Double the recover amount.
+                if (bonus > 1) this.lifeBar.recover();
 
-                //Return 1 as increasing health amount.
+                // Return 1 as increasing health amount.
                 return 1;
             }
-            if(this.length < Global.lineMaxLength){
-                this.length *= (1 + Global.lineStretchRate * bonus);
-                
-                //Return 2 as increasing length of the Line.
+            if (this.length < GLOBAL.lineMaxLength)
+            {
+                this.length *= (1 + GLOBAL.lineStretchRate * bonus);
+
+                // Return 2 as increasing length of the Line.
                 return 2;
             }
-        } else{
-            this.ammo += Global.energyBonusRate * Global.ammoReload * bonus;            
-            if(this.ammo > Global.lineMaxAmmo) this.ammo = Global.lineMaxAmmo;
+        }
+        else
+        {
+            this.ammo += GLOBAL.energyBonusRate * GLOBAL.ammoReload * bonus;
+            if (this.ammo > GLOBAL.lineMaxAmmo) this.ammo = GLOBAL.lineMaxAmmo;
 
-            //Return 4 as loading ammo.
+            // Return 4 as loading ammo.
             return 4;
         }
-        //Return 3 as stretching nothing.
+        // Return 3 as stretching nothing.
         return 3;
     }
 
@@ -743,7 +852,8 @@ class playerLine extends gamePlayer{
      * Called when line reaches minimum size.
      * @returns: true if player is still alive, false if player died.
      */
-    bleeding(){
+    bleeding()
+    {
         return this.lifeBar.beingAttacked();
     }
 
@@ -751,27 +861,31 @@ class playerLine extends gamePlayer{
      * Clean needles that are out of canvas bound.
      * @param indexToClear: array containing needle indexes that is to be cleaned.
      */
-    cleanNeedle(indexToClear){
-        indexToClear.forEach(index => {
-            this.needleArray.splice(index, 1);            
+    cleanNeedle(indexToClear)
+    {
+        indexToClear.forEach(index =>
+        {
+            this.needleArray.splice(index, 1);
         });
     };
 }
 
 //Rectangle player object class.
-class playerRect extends gamePlayer{
-    constructor(id, x, y, color, screenWidth, screenHeight, width, height, team){
-        super(id, x,y, color, screenHeight, screenWidth, team);
+class PlayerRect extends GamePlayer
+{
+    constructor(id, x, y, color, screenWidth, screenHeight, width, height, team)
+    {
+        super(id, x, y, color, screenHeight, screenWidth, team);
         this.type = "Rectangle";
         this.width = width;
         this.height = height;
         this.angle = 0;
         this.moveAngle = 0;
         this.force = 3;
-        this.playerVelo = new Vector2d(0,0);
-        this.screenTL = new Vector2d(x - screenWidth/2, y - screenHeight/2);
-        this.screenBR = new Vector2d(x + screenWidth/2, y + screenHeight/2);
-        this.lifeBar = new lifeBar(Global.rectangleLifeAmount);
+        this.playerVelo = new Vector2d(0, 0);
+        this.screenTL = new Vector2d(x - screenWidth / 2, y - screenHeight / 2);
+        this.screenBR = new Vector2d(x + screenWidth / 2, y + screenHeight / 2);
+        this.lifeBar = new LifeBar(GLOBAL.rectangleLifeAmount);
     }
 
     /**
@@ -779,30 +893,34 @@ class playerRect extends gamePlayer{
      * @param othersScreenTL @param othersScreenBR: vectors that describe the boundaries of the player screen  
      * @returns: true if the rectangle is inside the screen, false otherwise.
      */
-    inScreen(othersScreenTL, othersScreenBR){
-        //furthest: Furthest distance from rectangle centre to the edge of rectangle.
-        var furthest = Math.sqrt(this.height*this.height + this.width*this.width);
+    inScreen(othersScreenTL, othersScreenBR)
+    {
+        // furthest: Furthest distance from rectangle centre to the edge of rectangle.
+        var furthest = Math.sqrt(this.height * this.height + this.width * this.width);
 
-        //Possible to return true if a rectangle is not in the screen, but will definitely return true if it is.
-        if(this.x >= othersScreenTL.x - furthest && this.x <= othersScreenBR.x + furthest){
-            if(this.y >= othersScreenTL.y - furthest && this.y <= othersScreenBR.y + furthest){
+        // Possible to return true if a rectangle is not in the screen, but will definitely return true if it is.
+        if (this.x >= othersScreenTL.x - furthest && this.x <= othersScreenBR.x + furthest)
+        {
+            if (this.y >= othersScreenTL.y - furthest && this.y <= othersScreenBR.y + furthest)
+            {
                 return true;
             }
         }
         return false;
     }
-    
-    //Assign new position for the rectangle.
-    newPos(){
+
+    // Assign new position for the rectangle.
+    newPos()
+    {
         this.angle += this.moveAngle * Math.PI / 180;
         this.velocity = playerMovement(this.target.x, this.target.y, this.screenWidth, this.screenHeight);
         this.playerVelo = checkBound(this.x, this.y, this.velocity, 0);
         this.x += this.playerVelo.x;
         this.y += this.playerVelo.y;
-        this.screenTL.x = this.x - this.screenWidth/2;
-        this.screenTL.y = this.y - this.screenHeight/2;
-        this.screenBR.x = this.x + this.screenWidth/2;
-        this.screenBR.y = this.y + this.screenHeight/2;
+        this.screenTL.x = this.x - this.screenWidth / 2;
+        this.screenTL.y = this.y - this.screenHeight / 2;
+        this.screenBR.x = this.x + this.screenWidth / 2;
+        this.screenBR.y = this.y + this.screenHeight / 2;
     }
 
     /**
@@ -811,8 +929,9 @@ class playerRect extends gamePlayer{
      * @param radius: radius of the circle. 
      * @returns: true if collided, false otherwise.
      */
-    collisionCircle(circleCentre, radius){
-        return Collision.RectCirIntersect(this, circleCentre, radius);
+    collisionCircle(circleCentre, radius)
+    {
+        return COLLISION.RectCirIntersect(this, circleCentre, radius);
     }
 
     /**
@@ -820,8 +939,9 @@ class playerRect extends gamePlayer{
      * @param opposite: Other rectangle object.
      * @returns: true if collided, false otherwise.
      */
-    collisionRectangle(opposite){
-        return Collision.collisionRectangles(this, opposite);
+    collisionRectangle(opposite)
+    {
+        return COLLISION.collisionRectangles(this, opposite);
     }
 
     /**
@@ -829,8 +949,9 @@ class playerRect extends gamePlayer{
      * @param line: Line object.
      * @returns: true if collided, false otherwise.
      */
-    withLineIntersect(line){
-        return Collision.lineRectIntersect(this, new Vector2d(line.x, line.y), line.endPoint);
+    withLineIntersect(line)
+    {
+        return COLLISION.lineRectIntersect(this, new Vector2d(line.x, line.y), line.endPoint);
     }
 
     /**
@@ -839,81 +960,85 @@ class playerRect extends gamePlayer{
      * @returns: velocity vector assigned to the point object. If a point is going to be crushed, return a 
      * vector with infinity x and y.
      */
-    bounce(point){
+    bounce(point)
+    {
         var unrotated, closest;
         var d, d2;
         var rotateRadius, rotateD, rotateVelo, moveAngle, preX, preY;
         var velocityVector, velocityToPoint, c, l;
-    
-        //c: To control the force applied onto the point.
+
+        // c: To control the force applied onto the point.
         c = 1;
 
-        //unrotated: Rotate the point coordinate with -this.angle to get the exact position in an unrotated rectangle's perspective.
-        unrotated = Collision.rotatePoint(point, new Vector2d(this.x, this.y), -this.angle);
+        // unrotated: Rotate the point coordinate with -this.angle to get the exact position in an unrotated rectangle's perspective.
+        unrotated = COLLISION.rotatePoint(point, new Vector2d(this.x, this.y), -this.angle);
 
-        //closest: closest point from the point object centre to the rectangle.
-        closest = Collision.closestPoint(unrotated.x, unrotated.y, this);
+        // closest: closest point from the point object centre to the rectangle.
+        closest = COLLISION.closestPoint(unrotated.x, unrotated.y, this);
 
-        
-        //d: direction vector from the closest point on the rectangle to the centre of the unrotated point object
+
+        // d: direction vector from the closest point on the rectangle to the centre of the unrotated point object
         // in unrotated rectangle's perspective.
         d = new Vector2d(unrotated.x - closest.x, unrotated.y - closest.y).normalise();
-    
-        //Take a copy of d to d2
+
+        // Take a copy of d to d2
         d2 = Object.assign({}, d);
         // d2 = new Vector2d(d.x, d.y);
 
-        //d2: Rotate the d back to rotated rectangle's prespective.
-        d2 = Collision.rotatePoint(d, new Vector2d(0,0), this.angle);
-    
-        //rotateRadius: the radius from closest point on rectangle to the centre of rectangle.
+        // d2: Rotate the d back to rotated rectangle's prespective.
+        d2 = COLLISION.rotatePoint(d, new Vector2d(0, 0), this.angle);
+
+        // rotateRadius: the radius from closest point on rectangle to the centre of rectangle.
         rotateRadius = new Vector2d(closest.x - this.x, closest.y - this.y);
-        
-        //Convert degree to radian.
+
+        // Convert degree to radian.
         moveAngle = this.moveAngle * Math.PI / 180;
 
-        rotateD = new Vector2d(0,0);
-        rotateVelo = new Vector2d(0,0);
+        rotateD = new Vector2d(0, 0);
+        rotateVelo = new Vector2d(0, 0);
 
-        //Finding the rotation velocity
-        if(moveAngle != 0){
-            //Previous X and Y position of the closest point before rotation (only calculate when rotation exists)
+        // Finding the rotation velocity
+        if (moveAngle != 0)
+        {
+            // Previous X and Y position of the closest point before rotation (only calculate when rotation exists)
             preX = Math.cos(-moveAngle) * (rotateRadius.x) - Math.sin(-moveAngle) * (rotateRadius.y) + this.x;
             preY = Math.sin(-moveAngle) * (rotateRadius.x) + Math.cos(-moveAngle) * (rotateRadius.y) + this.y;
-    
-            //Rotation direction in unrotated rectangle's perspective.
-            //Here I assume the distance from previous point to the current point to also be the rotation velocity for simplicity.
+
+            // Rotation direction in unrotated rectangle's perspective.
+            // Here I assume the distance from previous point to the current point to also be the rotation velocity for simplicity.
             rotateD = new Vector2d(closest.x - preX, closest.y - preY);
 
-            //Rotation velocity in rotated rectangle's perspective.
+            // Rotation velocity in rotated rectangle's perspective.
             rotateVelo.x = Math.cos(this.angle) * rotateD.x - Math.sin(this.angle) * rotateD.y;
             rotateVelo.y = Math.sin(this.angle) * rotateD.x + Math.cos(this.angle) * rotateD.y;
             // console.log(rotateVelo.x + ", " + rotateVelo.y);
-        } 
-    
-        //Combine rotation velocity, player velocity and point velocity.
+        }
+
+        // Combine rotation velocity, player velocity and point velocity.
         velocityVector = new Vector2d(this.playerVelo.x - point.velocity.x + rotateVelo.x,
-                                      this.playerVelo.y - point.velocity.y + rotateVelo.y);
-    
-        //l: length of velocityVector projected onto direction d2.
+            this.playerVelo.y - point.velocity.y + rotateVelo.y);
+
+        // l: length of velocityVector projected onto direction d2.
         l = d2.dot(velocityVector);
-        
-        //Prevent situation where angle of velocityVector and d > 90,
-        //which makes the point go toward the same direction of player.
-        if(l < 0) l = 0;
-    
-        //Final velocity to the point.
+
+        // Prevent situation where angle of velocityVector and d > 90,
+        // which makes the point go toward the same direction of player.
+        if (l < 0) l = 0;
+
+        // Final velocity to the point.
         velocityToPoint = new Vector2d(d2.x * l * c, d2.y * l * c);
 
-        //Condition where the points are going to be crushed by the boundary and rectangle.
-        if(point.stuck){
-            //Check if a point is going to be crushed by a boundary.
-            if(  point.x + point.radius + velocityToPoint.x >= Global.canvasWidth 
-               ||point.x - point.radius + velocityToPoint.x <= 0
-               ||point.y + point.radius + velocityToPoint.y >= Global.canvasHeight
-               ||point.y - point.radius + velocityToPoint.y <= 0){
-                    // console.log("boooom");
-                    return new Vector2d(Infinity,Infinity);
+        // Condition where the points are going to be crushed by the boundary and rectangle.
+        if (point.stuck)
+        {
+            // Check if a point is going to be crushed by a boundary.
+            if (point.x + point.radius + velocityToPoint.x >= GLOBAL.canvasWidth
+                || point.x - point.radius + velocityToPoint.x <= 0
+                || point.y + point.radius + velocityToPoint.y >= GLOBAL.canvasHeight
+                || point.y - point.radius + velocityToPoint.y <= 0)
+            {
+                // console.log("boooom");
+                return new Vector2d(Infinity, Infinity);
             }
         }
         return velocityToPoint;
@@ -924,11 +1049,13 @@ class playerRect extends gamePlayer{
      * @param amount: float that specifies the amount of shrink.
      * @returns: true if valid shrink, false otherwise. 
      */
-    shrink(amount){
-        //Only shrink if the rectangle is still greater than minimum.
-        if(this.width > Global.rectangleMinW && this.height > Global.rectangleMinH){
-            this.width *= (1-Global.rectangleShrinkRate * amount);
-            this.height *= (1-Global.rectangleShrinkRate * amount);
+    shrink(amount)
+    {
+        // Only shrink if the rectangle is still greater than minimum.
+        if (this.width > GLOBAL.rectangleMinW && this.height > GLOBAL.rectangleMinH)
+        {
+            this.width *= (1 - GLOBAL.rectangleShrinkRate * amount);
+            this.height *= (1 - GLOBAL.rectangleShrinkRate * amount);
             return true;
         }
         return false;
@@ -940,16 +1067,19 @@ class playerRect extends gamePlayer{
      * @param bonus: float that specifies the amount of stretch.
      * @returns: integer that specifies the type of stretch.
      */
-    stretch(bonus){
-        if(this.lifeBar.recover()){
+    stretch(bonus)
+    {
+        if (this.lifeBar.recover())
+        {
             //Double the recover if bonus.
-            if(bonus > 1) this.lifeBar.recover();
+            if (bonus > 1) this.lifeBar.recover();
             //return 1 if increasing the health amount.
             return 1;
         }
-        if(this.width < Global.rectangleMaxW && this.height < Global.rectangleMaxH){
-            this.width *= (1 + Global.rectangleStretchRate * bonus);
-            this.height *= ( 1 + Global.rectangleStretchRate * bonus);
+        if (this.width < GLOBAL.rectangleMaxW && this.height < GLOBAL.rectangleMaxH)
+        {
+            this.width *= (1 + GLOBAL.rectangleStretchRate * bonus);
+            this.height *= (1 + GLOBAL.rectangleStretchRate * bonus);
             //return 2 if gaining the rectangle mass.
             return 2;
         }
@@ -961,7 +1091,8 @@ class playerRect extends gamePlayer{
      * Reduce the health amount if the rectangle is at minimum mass.
      * @returns: true if the player is still alive, false if player died.
      */
-    bleeding(){
+    bleeding()
+    {
         return this.lifeBar.beingAttacked();
     }
 }
@@ -973,15 +1104,16 @@ class playerRect extends gamePlayer{
  * @param length: Expected length of the line.
  * @returns: the vector that represents the end point of the line.
  */
-function getLine(x, y, target, length){
+function getLine(x, y, target, length)
+{
     let d, endPoint;
 
-    //Direction vector of the line.
+    // Direction vector of the line.
     d = new Vector2d(target.x, target.y).normalise();
 
-    //The end point found here will not make the length of the line to be expected length, but could still work.
-    //TODO: Getting expected length of line.
-    endPoint = new Vector2d(x - d.x*length, y - d.y*length);
+    // The end point found here will not make the length of the line to be expected length, but could still work.
+    // TODO: Getting expected length of line.
+    endPoint = new Vector2d(x - d.x * length, y - d.y * length);
     // endPoint.x = x - endPoint.x;
     // endPoint.y = y - endPoint.y;
     return endPoint;
@@ -991,37 +1123,38 @@ function getLine(x, y, target, length){
  * Generate player movement speed depends on the distance with mouse cursor.
  * @param targetX @param targetY: the position of the mouse cursor in the screen coordinate
  * @param screenHeight @param screenWidth: the width and height of the player screen.
- */ 
-function playerMovement(targetX, targetY, screenWidth, screenHeight){
+ */
+function playerMovement(targetX, targetY, screenWidth, screenHeight)
+{
 
     let force = 0,
-        
-        //To make the maximum speed in x and y direction the same, we take the minimum of screen width/height
-        //divided by 2 as the maximum length from mouse position to the centre of the screen.
-        min = Math.min(screenWidth/2, screenHeight/2),
-        
-        dx = targetX - screenWidth/2,
-        dy = targetY - screenHeight/2,
 
-        //Finding the distance from screen centre to the mouse cursor position (or the maximum point).
-        dist = new Vector2d(screenWidth/2, screenHeight/2).distance(new Vector2d(Math.min(targetX, min), Math.min(targetY,min)));
+        // To make the maximum speed in x and y direction the same, we take the minimum of screen width/height
+        // divided by 2 as the maximum length from mouse position to the centre of the screen.
+        min = Math.min(screenWidth / 2, screenHeight / 2),
 
-    //This is to determine the speed according to the distance from middle of screen and mouse position.
-    //TODO: Assigning different speeds for different type of player object.
+        dx = targetX - screenWidth / 2,
+        dy = targetY - screenHeight / 2,
+
+        // Finding the distance from screen centre to the mouse cursor position (or the maximum point).
+        dist = new Vector2d(screenWidth / 2, screenHeight / 2).distance(new Vector2d(Math.min(targetX, min), Math.min(targetY, min)));
+
+    // This is to determine the speed according to the distance from middle of screen and mouse position.
+    // TODO: Assigning different speeds for different type of player object.
     force = dist * dt;
-    
-    //Limiting the maximum distance of the mouse position to centre of the screen.
-    if(Math.abs(dx) > min) dx = Math.sign(dx) * min;
-    if(Math.abs(dy) > min) dy = Math.sign(dy) * min;
 
-    //Calculate the velocity for the object.
-    let velX = (dx/dist)*force,
-        velY = (dy/dist)*force; 
+    // Limiting the maximum distance of the mouse position to centre of the screen.
+    if (Math.abs(dx) > min) dx = Math.sign(dx) * min;
+    if (Math.abs(dy) > min) dy = Math.sign(dy) * min;
+
+    // Calculate the velocity for the object.
+    let velX = (dx / dist) * force,
+        velY = (dy / dist) * force;
 
     let velocity = new Vector2d(velX, velY);
     // console.log(velocity);  
 
-    return velocity;  
+    return velocity;
 }
 
 /**
@@ -1031,26 +1164,31 @@ function playerMovement(targetX, targetY, screenWidth, screenHeight){
  * @param velocity: Expected velocity of the player object.
  * @param limit: Minimum distance from the centre of the player to the boundary. (I.e. radius for circle object)
  * @returns: The final velocity assigned to the payer object.
- */ 
-function checkBound(playerX, playerY, velocity, limit){
-    let playerVelo = new Vector2d(0,0);
+ */
+function checkBound(playerX, playerY, velocity, limit)
+{
+    let playerVelo = new Vector2d(0, 0);
 
-    //Velocity in x direction
-    //Check if the player will exceed the canvas bound in new position.
-    if(playerX + velocity.x <= Global.canvasWidth - limit){
-        if(playerX + velocity.x >= 0 + limit){
+    // Velocity in x direction
+    // Check if the player will exceed the canvas bound in new position.
+    if (playerX + velocity.x <= GLOBAL.canvasWidth - limit)
+    {
+        if (playerX + velocity.x >= 0 + limit)
+        {
             playerVelo.x = velocity.x;
         }
-    } 
+    }
 
-    //Velocity in y direction
-    //Check if the player will exceed the canvas bound in new position.
-    if(playerY + velocity.y <= Global.canvasHeight - limit){
-        if(playerY + velocity.y >= 0 + limit){
+    // Velocity in y direction
+    // Check if the player will exceed the canvas bound in new position.
+    if (playerY + velocity.y <= GLOBAL.canvasHeight - limit)
+    {
+        if (playerY + velocity.y >= 0 + limit)
+        {
             playerVelo.y = velocity.y;
         }
     }
-    //If player will exceed the canvas boundary with the expected velocity, assign is with 0.
+    // If player will exceed the canvas boundary with the expected velocity, assign is with 0.
     return playerVelo;
 }
 
@@ -1059,18 +1197,19 @@ function checkBound(playerX, playerY, velocity, limit){
  * @param radius: radius of the point object.
  * @returns: The new position for the point object.
  */
-function randomPointPosition(radius){
-    let x = Math.random() * (Global.canvasWidth - radius),
-        y = Math.random() * (Global.canvasHeight - radius);
+function randomPointPosition(radius)
+{
+    let x = Math.random() * (GLOBAL.canvasWidth - radius),
+        y = Math.random() * (GLOBAL.canvasHeight - radius);
     return new Vector2d(x, y);
 }
 
-//Exporting classes that will be used by other files.
+// Exporting classes that will be used by other files.
 module.exports = {
-    gamePoint:gamePoint,
-//    gameNeedle:gameNeedle,
-//    gameEnergy:gameEnergy,
-    playerLine:playerLine,
-    playerRect:playerRect,
-    playerCir:playerCir
+    GamePoint: GamePoint,
+    //    gameNeedle:gameNeedle,
+    //    gameEnergy:gameEnergy,
+    PlayerLine: PlayerLine,
+    PlayerRect: PlayerRect,
+    PlayerCir: PlayerCir
 }; 
