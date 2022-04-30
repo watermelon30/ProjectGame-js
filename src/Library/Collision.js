@@ -71,8 +71,9 @@ export function closestPoint(pointX, pointY, rect)
  */
 export function orientation(p1, p2, q1)
 {
-    let o = (p2.y - p1.y) * (q1.x - p2.x) - (p2.x - p1.x) * (q1.y - p2.y);
     // o: The determinant of two vectors, (p2-p1) and (q1-p2). Assumed that three points are at the same plane.
+    let o = (p2.y - p1.y) * (q1.x - p2.x) - (p2.x - p1.x) * (q1.y - p2.y);
+
     // We can use this to determine the orientation.
     if (o == 0) return 0;
     if (o > 0) return 1;
@@ -204,7 +205,6 @@ export function lineCirIntersect(cir, lineHead, lineTail)
  */
 export function RectCirIntersect(rect, circleCentre, radius)
 {
-
     // Rotate the circle coordinate in negative angle of the rectangle
     // to assume tht rectangle axis is parallel to the x axis to perform collision detection.
     let unrotatedCircleCentre = rotatePoint(circleCentre, new Vector2d(rect.x, rect.y), -rect.angle);
@@ -215,7 +215,7 @@ export function RectCirIntersect(rect, circleCentre, radius)
 
     let dist = closest.distance(unrotatedCircleCentre);
     if (dist < radius) return true;
-    else return false;
+    return false;
 }
 
 

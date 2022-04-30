@@ -368,7 +368,6 @@ class GameEnergy extends GameObject
                 if (COLLISION.lineCirIntersect(this, new Vector2d(player.x, player.y), player.endPoint))
                 {
                     this.absorbed = true;
-                    return true;
                 }
             }
             else
@@ -376,12 +375,10 @@ class GameEnergy extends GameObject
                 if (player.collisionCircle(new Vector2d(this.x, this.y), this.radius))
                 {
                     this.absorbed = true;
-                    return true;
                 }
-                return false;
             }
         }
-        return true;
+        return this.absorbed;
     }
 
     /**
@@ -493,7 +490,8 @@ class PlayerCir extends GamePlayer
                 this.invisible = false;
                 this.invisibleTimer = 0;
             }
-        } else
+        }
+        else
         {
             //Restart invisibleTimer
             this.alpha = 1;
@@ -633,12 +631,12 @@ class PlayerCir extends GamePlayer
      */
     unseen()
     {
-        //Can only enable invisible with timer greater than 5 seconds
+        // Can only enable invisible with timer greater than 5 seconds
         if (this.invisibleTimer > 5)
         {
             this.invisible = true;
         }
-        //     console.log("Cannot be invisible"); //DEBUG
+        // console.log("Cannot be invisible"); //DEBUG
     }
 
     /**
@@ -652,10 +650,10 @@ class PlayerCir extends GamePlayer
                 energyX = this.x + direction.x * this.radius,
                 energyY = this.y + direction.y * this.radius;
 
-            //Adding an energy object.
+            // Adding an energy object.
             this.energyArray.push(new GameEnergy(energyX, energyY, this.color, direction));
 
-            //Shrink the circle
+            // Shrink the circle
             this.radius--;
         }
     }
@@ -693,7 +691,7 @@ class PlayerLine extends GamePlayer
         this.lifeBar = new LifeBar(CONFIG.lineLifeAmount);
         this.ammo = 100;
 
-        //Gathering ammo (true) OR increase size/life (false) when points eaten.
+        // Gathering ammo (true) OR increase size/life (false) when points eaten.
         this.ammoMode = false;
     }
 
@@ -742,7 +740,7 @@ class PlayerLine extends GamePlayer
         this.grid.x = this.x % CONFIG.gridGap;
         this.grid.y = this.y % CONFIG.gridGap;
 
-        if (this.emit == true)
+        if (this.emit)
         {
             // Emit needle when ammo != 0
             if (this.ammo > 0)
