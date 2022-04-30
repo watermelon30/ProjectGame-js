@@ -362,332 +362,327 @@ function gameLoop()
 // Send updated state to each player.
 function sendUpdate()
 {
-    if (playersList.length > 0)
+    playersList.forEach(player =>
     {
-        playersList.forEach(player =>
+        var inScreenPlayer = [],
+            inScreenNeedle = [],
+            inScreenEnergy = [],
+            playerInfo = [];
+
+        // sockets[Players.indexOf(player)].emit('self', inScreenPlayer, inScreenNeedle, inScreenEnergy, playerInfo);
+
+        // Check interaction between players within the current screen.
+        playersList.forEach(player1 =>
         {
-            var inScreenPlayer = [],
-                inScreenNeedle = [],
-                inScreenEnergy = [],
-                playerInfo = [];
-
-            // sockets[Players.indexOf(player)].emit('self', inScreenPlayer, inScreenNeedle, inScreenEnergy, playerInfo);
-
-            // Check interaction between players within the current screen.
-            playersList.forEach(player1 =>
+            // Check if other players are in the current player's screen.
+            if (player1.inScreen(player.screenTL, player.screenBR))
             {
-                // Check if other players are in the current player's screen.
-                if (player1.inScreen(player.screenTL, player.screenBR))
+                // Action if other players are type Circle.
+                if (player1 instanceof PlayerCir)
                 {
-                    // Action if other players are type Circle.
-                    if (player1 instanceof PlayerCir)
+                    // Collision detection only with enemy.
+                    if (player1.team != player.team)
                     {
-                        // Collision detection only with enemy.
-                        if (player1.team != player.team)
+                        // Only check player interaction if circle is visible.
+                        if (!player1.invisible)
                         {
-                            // Only check player interaction if circle is visible.
-                            if (!player1.invisible)
+                            // CIRCLE vs CIRCLE
+                            if (player instanceof PlayerCir)
                             {
-                                // CIRCLE vs CIRCLE
-                                if (player instanceof PlayerCir)
-                                {
-                                    // Interaction only if both are not invisible.
-                                    if (!player.invisible)
-                                    {
-                                        if (player1.collisionCircle(new Vector2d(player.x, player.y), player.radius))
-                                        {
-                                            // Shrinking both circles.
-                                            shrinkPlayer('C', player1, 0.5);
-                                            shrinkPlayer('C', player, 0.5);
-                                        }
-                                    }
-                                }
-                                // CIRCLE vs RECTANGLE
-                                if (player instanceof PlayerRect)
-                                {
-                                    if (player.collisionCircle(new Vector2d(player1.x, player1.y), player1.radius))
-                                    {
-                                        shrinkPlayer('C', player1, 1);
-                                    }
-                                }
-                                // CIRCLE vs LINE
-                                if (player instanceof PlayerLine)
-                                {
-                                    if (player.touchOthers(player1))
-                                    {
-                                        shrinkPlayer('C', player1, 1);
-                                    }
-                                }
-                            }
-                        }
-                        // Add all circle players visible to current player into the array.
-                        inScreenPlayer.push({
-                            x: player1.x,
-                            y: player1.y,
-                            color: player1.color,
-                            radius: player1.radius,
-                            alpha: player1.alpha,
-                            type: player1.type
-                        });
-                    }
-
-                    // Action if other players are type Rectangle
-                    if (player1 instanceof PlayerRect)
-                    {
-                        if (player1.team != player.team)
-                        {
-                            // RECTANGLE vs RECTANGLE
-                            if (player instanceof PlayerRect)
-                            {
-                                if (player1.collisionRectangle(player))
-                                {
-                                    // Shrink both rectangle players.
-                                    shrinkPlayer('R', player1, 0.5);
-                                    shrinkPlayer('R', player, 0.5);
-                                }
-                            }
-                            // RECTANGLE vs LINE
-                            if (player instanceof PlayerLine)
-                            {
-                                // Shrink line player.
-                                if (player1.withLineIntersect(player))
-                                {
-                                    shrinkPlayer('L', player, 1);
-                                }
-                            }
-                        }
-                        // Add all rectangle players visible to current player into the array.
-                        inScreenPlayer.push({
-                            x: player1.x,
-                            y: player1.y,
-                            color: player1.color,
-                            width: player1.width,
-                            height: player1.height,
-                            angle: player1.angle,
-                            type: player1.type
-                        });
-                    }
-                    // Action if other players are type Line.
-                    if (player1 instanceof PlayerLine)
-                    {
-                        if (player1.team != player.team)
-                        {
-                            // LINE vs LINE
-                            if (player instanceof PlayerLine)
-                            {
-                                if (player1.touchLine(player))
-                                {
-                                    // Shrink both line.
-                                    shrinkPlayer('L', player1, 0.5);
-                                    shrinkPlayer('L', player, 0.5);
-                                }
-                            }
-                        }
-                        // Add all line player visible to current player into the array. 
-                        inScreenPlayer.push({
-                            x: player1.x,
-                            y: player1.y,
-                            color: player1.color,
-                            endPointX: player1.endPoint.x,
-                            endPointY: player1.endPoint.y,
-                            type: player1.type
-                        });
-                    }
-                }
-                // Check if any needle exists in current player's screen.
-                if (player1 instanceof PlayerLine)
-                {
-                    let needleToClean = [];
-
-                    // Check needle interaction with enemy players.
-                    player1.needleArray.forEach(needle =>
-                    {
-                        if (!needle.inScreen(player.screenTL, player.screenBR))
-                        {
-                            return;
-                        }
-                        if (player1.team != player.team)
-                        {
-                            // NEEDLE vs LINE
-                            if (player instanceof PlayerLine)
-                            {
-                                if (needle.touchOthers(player))
-                                {
-                                    shrinkPlayer('L', player, 1);
-                                }
-                            }
-                            // NEEDLE vs CIRCLE
-                            else if (player instanceof PlayerCir)
-                            {
+                                // Interaction only if both are not invisible.
                                 if (!player.invisible)
                                 {
-                                    if (needle.touchOthers(player))
+                                    if (player1.collisionCircle(new Vector2d(player.x, player.y), player.radius))
                                     {
-                                        shrinkPlayer('C', player, 1);
+                                        // Shrinking both circles.
+                                        shrinkPlayer('C', player1, 0.5);
+                                        shrinkPlayer('C', player, 0.5);
                                     }
                                 }
                             }
-                            // NEEDLE vs RECTANGLE
-                            else if (player instanceof PlayerRect)
+                            // CIRCLE vs RECTANGLE
+                            if (player instanceof PlayerRect)
+                            {
+                                if (player.collisionCircle(new Vector2d(player1.x, player1.y), player1.radius))
+                                {
+                                    shrinkPlayer('C', player1, 1);
+                                }
+                            }
+                            // CIRCLE vs LINE
+                            if (player instanceof PlayerLine)
+                            {
+                                if (player.touchOthers(player1))
+                                {
+                                    shrinkPlayer('C', player1, 1);
+                                }
+                            }
+                        }
+                    }
+                    // Add all circle players visible to current player into the array.
+                    inScreenPlayer.push({
+                        x: player1.x,
+                        y: player1.y,
+                        color: player1.color,
+                        radius: player1.radius,
+                        alpha: player1.alpha,
+                        type: player1.type
+                    });
+                }
+                // Action if other players are type Rectangle
+                else if (player1 instanceof PlayerRect)
+                {
+                    if (player1.team != player.team)
+                    {
+                        // RECTANGLE vs RECTANGLE
+                        if (player instanceof PlayerRect)
+                        {
+                            if (player1.collisionRectangle(player))
+                            {
+                                // Shrink both rectangle players.
+                                shrinkPlayer('R', player1, 0.5);
+                                shrinkPlayer('R', player, 0.5);
+                            }
+                        }
+                        // RECTANGLE vs LINE
+                        if (player instanceof PlayerLine)
+                        {
+                            // Shrink line player.
+                            if (player1.withLineIntersect(player))
+                            {
+                                shrinkPlayer('L', player, 1);
+                            }
+                        }
+                    }
+                    // Add all rectangle players visible to current player into the array.
+                    inScreenPlayer.push({
+                        x: player1.x,
+                        y: player1.y,
+                        color: player1.color,
+                        width: player1.width,
+                        height: player1.height,
+                        angle: player1.angle,
+                        type: player1.type
+                    });
+                }
+                // Action if other players are type Line.
+                else if (player1 instanceof PlayerLine)
+                {
+                    if (player1.team != player.team)
+                    {
+                        // LINE vs LINE
+                        if (player instanceof PlayerLine)
+                        {
+                            if (player1.touchLine(player))
+                            {
+                                // Shrink both line.
+                                shrinkPlayer('L', player1, 0.5);
+                                shrinkPlayer('L', player, 0.5);
+                            }
+                        }
+                    }
+                    // Add all line player visible to current player into the array. 
+                    inScreenPlayer.push({
+                        x: player1.x,
+                        y: player1.y,
+                        color: player1.color,
+                        endPointX: player1.endPoint.x,
+                        endPointY: player1.endPoint.y,
+                        type: player1.type
+                    });
+                }
+            }
+            // Check if any needle exists in current player's screen.
+            if (player1 instanceof PlayerLine)
+            {
+                let needlesToClean = [];
+
+                // Check needles interaction with enemy players.
+                player1.needleArray.forEach(needle =>
+                {
+                    if (!needle.inScreen(player.screenTL, player.screenBR))
+                    {
+                        return;
+                    }
+                    if (player1.team != player.team)
+                    {
+                        // NEEDLE vs LINE
+                        if (player instanceof PlayerLine)
+                        {
+                            if (needle.touchOthers(player))
+                            {
+                                shrinkPlayer('L', player, 1);
+                            }
+                        }
+                        // NEEDLE vs CIRCLE
+                        else if (player instanceof PlayerCir)
+                        {
+                            if (!player.invisible)
                             {
                                 if (needle.touchOthers(player))
+                                {
+                                    shrinkPlayer('C', player, 1);
+                                }
+                            }
+                        }
+                        // NEEDLE vs RECTANGLE
+                        else if (player instanceof PlayerRect)
+                        {
+                            if (needle.touchOthers(player))
+                            {
+                                shrinkPlayer('R', player, 1);
+                            }
+                        }
+                        // Add needle objects visible to current player into the array.
+                        inScreenNeedle.push({
+                            x: needle.x,
+                            y: needle.y,
+                            endPointX: needle.endPoint.x,
+                            endPointY: needle.endPoint.y
+                        });
+                    }
+                    // Add needles from line player that are far out of game area to the array waiting to be cleaned.
+                    else if (!needle.inScreen(new Vector2d(-300, -300), new Vector2d(CONFIG.canvasWidth + 300, CONFIG.canvasHeight + 300)))
+                    {
+                        let indexToDelete = player1.needleArray.indexOf(needle);
+                        needlesToClean.push(indexToDelete);
+                    }
+                });
+                // Cleaning out of bound needles.
+                player1.cleanNeedles(needlesToClean);
+                // DEBUG: console.log(player1.needleArray.length);
+            }
+            // Check if any energy exists in current player's screen. 
+            else if (player1 instanceof PlayerCir)
+            {
+                let energiesToClean = [];
+
+                // Check energy objects interaction with players.
+                player1.energyArray.forEach(energy =>
+                {
+                    // Add energy objects that are too small to the array waiting to be cleaned.
+                    if (energy.radius <= 0)
+                    {
+                        let indexToDelete = player1.energyArray.indexOf(energy);
+                        energiesToClean.push(indexToDelete);
+                        return;
+                    }
+                    // Check if energy is in the player screen.
+                    if (!energy.inScreen(player.screenTL, player.screenBR))
+                    {
+                        return;
+                    }
+                    // Energy will become toxic to the enemy.
+                    if (player1.team != player.team)
+                    {
+                        energy.absorb(player);
+                        if (energy.absorbed)
+                        {
+                            if (energy.shrink())
+                            {
+                                if (player instanceof PlayerCir)
+                                {
+                                    shrinkPlayer('C', player, 1);
+                                }
+                                if (player instanceof PlayerRect)
                                 {
                                     shrinkPlayer('R', player, 1);
                                 }
+                                if (player instanceof PlayerLine)
+                                {
+                                    shrinkPlayer('L', player, 1);
+                                }
                             }
-                            // Add needle objects visible to current player into the array.
-                            inScreenNeedle.push({
-                                x: needle.x,
-                                y: needle.y,
-                                endPointX: needle.endPoint.x,
-                                endPointY: needle.endPoint.y
-                            });
                         }
-                        // Add needles from line player that is far out of game area to the array waiting to be cleaned.
-                        else if (!needle.inScreen(new Vector2d(-300, -300), new Vector2d(CONFIG.canvasWidth + 300, CONFIG.canvasHeight + 300)))
-                        {
-                            let indexToDelete = player1.needleArray.indexOf(needle);
-                            needleToClean.push(indexToDelete);
-                        }
-                    });
-                    // Cleaning out of bound needles.
-                    player1.cleanNeedle(needleToClean);
-                    // DEBUG: console.log(player1.needleArray.length);
-                }
-
-                // Check if any energy exists in current player's screen. 
-                if (player1 instanceof PlayerCir)
-                {
-                    let energyToClean = [];
-
-                    // Check energy objects interaction with players.
-                    player1.energyArray.forEach(energy =>
+                    }
+                    // Energy being absorbed by teammate.
+                    else
                     {
-                        // Add energy objects that are too small to the array waiting to be cleaned.
-                        if (energy.radius <= 0)
+                        if (player1 != player)
                         {
-                            let indexToDelete = player1.energyArray.indexOf(energy);
-                            energyToClean.push(indexToDelete);
-                            return;
-                        }
-                        // Check if energy is in the player screen.
-                        if (!energy.inScreen(player.screenTL, player.screenBR))
-                        { 
-                            return;
-                        }
-                        // Energy will become toxic to the enemy.
-                        if (player1.team != player.team)
-                        {
+                            // Check collision with player. If true, absorbed will be set true;
                             energy.absorb(player);
+
                             if (energy.absorbed)
                             {
                                 if (energy.shrink())
                                 {
-                                    if (player instanceof PlayerCir)
+                                    // Enable bonus stretch mode for rect and line.
+                                    if (!(player instanceof PlayerCir))
                                     {
-                                        shrinkPlayer('C', player, 1);
+                                        player.stretch(CONFIG.energyBonusRate);
+                                        return;
                                     }
-                                    if (player instanceof PlayerRect)
-                                    {
-                                        shrinkPlayer('R', player, 1);
-                                    }
-                                    if (player instanceof PlayerLine)
-                                    {
-                                        shrinkPlayer('L', player, 1);
-                                    }
+                                    player.stretch();
                                 }
                             }
                         }
-                        // Energy being absorbed by teammate.
-                        else
-                        {
-                            if (player1 != player)
-                            {
-                                // Check collision with player. If true, absorbed will be set true;
-                                energy.absorb(player);
-
-                                if (energy.absorbed)
-                                {
-                                    if (energy.shrink())
-                                    {
-                                        // Enable bonus stretch mode for rect and line.
-                                        if (!(player instanceof PlayerCir))
-                                        {
-                                            player.stretch(CONFIG.energyBonusRate);
-                                            return;
-                                        }
-                                        player.stretch();
-                                    }
-                                }
-                            }
-                        }
-                        // Adding visible energy objects to the array.
-                        if (energy.radius > 0)
-                        {
-                            inScreenEnergy.push({
-                                x: energy.x,
-                                y: energy.y,
-                                color: energy.color,
-                                radius: energy.radius
-                            });
-                        }
-                    });
-                    // Cleaning energy objects.
-                    player1.cleanEnergy(energyToClean);
-                }
-            });
-
-            // Check any point objects existing in current player's screen.
-            // PointArray.forEach(point =>{
-            //     if(point.inScreen(player.screenTL, player.screenBR)){
-            //         inScreenPoint.push({
-            //             x: point.x - player.screenTL.x,
-            //             y: point.y - player.screenTL.y,
-            //             color: point.color,
-            //             radius: point.radius
-            //         });
-            //     }
-            // });
-
-            // grid.push(player.grid.x - player.screenTL.x);
-            // grid.push(player.grid.y - player.screenTL.y);
-            // console.log(player.screenTL.x);
-
-            // Finding the first line of grip to be drawn on player screen.
-            // grid.push(CONFIG.gridGap - player.screenTL.x % CONFIG.gridGap);
-            // grid.push(CONFIG.gridGap - player.screenTL.y % CONFIG.gridGap);
-
-
-            playerInfo.push(player.lifeBar.life); //[0]
-            if (player instanceof PlayerCir)
-            {
-                playerInfo.push('C'); //[1] 
-                playerInfo.push(player.invisibleTimer.toFixed(2)); //[2]
+                    }
+                    // Adding visible energy objects to the array.
+                    if (energy.radius > 0)
+                    {
+                        inScreenEnergy.push({
+                            x: energy.x,
+                            y: energy.y,
+                            color: energy.color,
+                            radius: energy.radius
+                        });
+                    }
+                });
+                // Cleaning energy objects.
+                player1.cleanEnergies(energiesToClean);
             }
-            else if (player instanceof PlayerLine)
-            {
-                playerInfo.push('L'); //[1]
-                // TODO: Ammo amount could be sent only when changed.
-                playerInfo.push(player.ammo); //[2]
-
-                playerInfo.push(player.ammoMode); //[3]
-            }
-            else if (player instanceof PlayerRect)
-            {
-                playerInfo.push('R'); //[1]
-                // TODO: Adding brick mode.
-            }
-            // playerInfo[0]: health amount, [1]: player type code, [2][3] special info for that type.
-
-            // Emit update info to a specific player.
-            // Compress function added to reduce network transfer workload. 
-            // Volatile flag to allow the lost of the data, as it will be sent again soon.
-            // TODO: Reduce the data sent between server and client
-            sockets[playersList.indexOf(player)].compress(true).emit(
-                'gameUpdate', inScreenPlayer, inScreenNeedle, inScreenEnergy, playerInfo
-            );
         });
-    }
+
+        // Check any point objects existing in current player's screen.
+        // PointArray.forEach(point =>{
+        //     if(point.inScreen(player.screenTL, player.screenBR)){
+        //         inScreenPoint.push({
+        //             x: point.x - player.screenTL.x,
+        //             y: point.y - player.screenTL.y,
+        //             color: point.color,
+        //             radius: point.radius
+        //         });
+        //     }
+        // });
+
+        // grid.push(player.grid.x - player.screenTL.x);
+        // grid.push(player.grid.y - player.screenTL.y);
+        // console.log(player.screenTL.x);
+
+        // Finding the first line of grip to be drawn on player screen.
+        // grid.push(CONFIG.gridGap - player.screenTL.x % CONFIG.gridGap);
+        // grid.push(CONFIG.gridGap - player.screenTL.y % CONFIG.gridGap);
+
+
+        playerInfo.push(player.lifeBar.life); //[0]
+        if (player instanceof PlayerCir)
+        {
+            playerInfo.push('C'); //[1] 
+            playerInfo.push(player.invisibleTimer.toFixed(2)); //[2]
+        }
+        else if (player instanceof PlayerLine)
+        {
+            playerInfo.push('L'); //[1]
+            // TODO: Ammo amount could be sent only when changed.
+            playerInfo.push(player.ammo); //[2]
+
+            playerInfo.push(player.ammoMode); //[3]
+        }
+        else if (player instanceof PlayerRect)
+        {
+            playerInfo.push('R'); //[1]
+            // TODO: Adding brick mode.
+        }
+        // playerInfo[0]: health amount, [1]: player type code, [2][3] special info for that type.
+
+        // Emit update info to a specific player.
+        // Compress function added to reduce network transfer workload. 
+        // Volatile flag to allow the lost of the data, as it will be sent again soon.
+        // TODO: Reduce the data sent between server and client
+        sockets[playersList.indexOf(player)].compress(true).emit(
+            'gameUpdate', inScreenPlayer, inScreenNeedle, inScreenEnergy, playerInfo
+        );
+    });
 }
 
 // Update gameLoop repeatedly.

@@ -7,6 +7,7 @@ const CONFIG =
     gridGap: 50,
     fps: 60,
     energyBonusRate: 2,
+    gameFriction: 0.985,
 
     circleDefaultR: 50,
     circleLifeAmount: 250,

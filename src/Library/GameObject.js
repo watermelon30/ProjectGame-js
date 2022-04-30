@@ -187,8 +187,8 @@ class GamePoint extends GameObject
             this.y += this.velocity.y;
 
             // Apply friction.
-            this.velocity.x *= 0.985;
-            this.velocity.y *= 0.985;
+            this.velocity.x *= CONFIG.gameFriction;
+            this.velocity.y *= CONFIG.gameFriction;
 
             // Force stop when velocity is small.
             if (this.velocity.distance(new Vector2d(0, 0)) < 0.2)
@@ -310,47 +310,49 @@ class GameEnergy extends GameObject
     // Assigning new position
     newPos()
     {
-        if (this.velocity.x != 0 || this.velocity.y != 0)
+        if (this.velocity.x == 0 && this.velocity.y == 0)
         {
-            // Bounce off the when the point touches the boundary of canvas.
+            return;
+        }
 
-            // Touch right side of boundary
-            if (this.x >= CONFIG.canvasWidth - this.radius)
-            {
-                this.x = CONFIG.canvasWidth - this.radius;
-                this.velocity.x = -this.velocity.x;
-            }
-            // Touch left side of boundary
-            else if (this.x <= this.radius)
-            {
-                this.x = this.radius;
-                this.velocity.x = -this.velocity.x;
-            }
-            // Touch top of the boundary. 
-            if (this.y <= this.radius)
-            {
-                this.y = this.radius;
-                this.velocity.y = -this.velocity.y;
-            }
-            // Touch bottom of the boundary.
-            else if (this.y >= CONFIG.canvasHeight - this.radius)
-            {
-                this.y = CONFIG.canvasHeight - this.radius;
-                this.velocity.y = -this.velocity.y;
-            }
-            this.x += this.velocity.x;
-            this.y += this.velocity.y;
+        // Bounce off the when the point touches the boundary of canvas.
 
-            // Apply friction.
-            this.velocity.x *= 0.985;
-            this.velocity.y *= 0.985;
+        // Touch right side of boundary
+        if (this.x >= CONFIG.canvasWidth - this.radius)
+        {
+            this.x = CONFIG.canvasWidth - this.radius;
+            this.velocity.x = -this.velocity.x;
+        }
+        // Touch left side of boundary
+        else if (this.x <= this.radius)
+        {
+            this.x = this.radius;
+            this.velocity.x = -this.velocity.x;
+        }
+        // Touch top of the boundary. 
+        if (this.y <= this.radius)
+        {
+            this.y = this.radius;
+            this.velocity.y = -this.velocity.y;
+        }
+        // Touch bottom of the boundary.
+        else if (this.y >= CONFIG.canvasHeight - this.radius)
+        {
+            this.y = CONFIG.canvasHeight - this.radius;
+            this.velocity.y = -this.velocity.y;
+        }
+        this.x += this.velocity.x;
+        this.y += this.velocity.y;
 
-            // Force stop when velocity is small.
-            if (this.velocity.distance(new Vector2d(0, 0)) < 0.2)
-            {
-                this.velocity.x = 0;
-                this.velocity.y = 0;
-            }
+        // Apply friction.
+        this.velocity.x *= CONFIG.gameFriction;
+        this.velocity.y *= CONFIG.gameFriction;
+
+        // Force stop when velocity is small.
+        if (this.velocity.distance(new Vector2d(0, 0)) < 0.2)
+        {
+            this.velocity.x = 0;
+            this.velocity.y = 0;
         }
     }
 
@@ -660,11 +662,11 @@ class PlayerCir extends GamePlayer
 
     /**
      * Clean energy that are out of bound by removing from the array. Will wait for garbage collection.
-     * @param indexToClear: array that contains indexes of energy objects to be cleaned. 
+     * @param indexesToClear: array that contains indexes of energy objects to be cleaned. 
      */
-    cleanEnergy(indexToClear)
+    cleanEnergies(indexesToClear)
     {
-        indexToClear.forEach(index =>
+        indexesToClear.forEach(index =>
         {
             this.energyArray.splice(index, 1);
         });
@@ -857,11 +859,11 @@ class PlayerLine extends GamePlayer
 
     /**
      * Clean needles that are out of canvas bound.
-     * @param indexToClear: array containing needle indexes that is to be cleaned.
+     * @param indexesToClear: array containing needle indexes that is to be cleaned.
      */
-    cleanNeedle(indexToClear)
+    cleanNeedles(indexesToClear)
     {
-        indexToClear.forEach(index =>
+        indexesToClear.forEach(index =>
         {
             this.needleArray.splice(index, 1);
         });
