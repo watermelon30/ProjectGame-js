@@ -1,5 +1,6 @@
-//Game-related parameters that can be altered. 
-module.exports = {
+const CONFIG =
+{
+    //Game-related parameters that can be altered.
     canvasWidth: 5000,
     canvasHeight: 5000,
     maxPoint: 1000,
@@ -35,3 +36,12 @@ module.exports = {
     rectangleMinH: 60,
     pointRadius: 15
 }
+
+const PLAYERTYPE =
+{
+    rectangle: "Rectangle",
+    line: "Line",
+    circle: "Circle"
+}
+
+export { CONFIG, PLAYERTYPE }

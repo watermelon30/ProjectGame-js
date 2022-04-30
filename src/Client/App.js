@@ -1,3 +1,4 @@
+import { PLAYERTYPE } from './../Library/Global.js';
 var menu = document.getElementById('gameMenu');
 var canvas = document.getElementById('canvas');
 var ctx = canvas.getContext("2d");
@@ -66,10 +67,10 @@ function loadPage()
             teamNum = -1;
 
         // Getting user preferred type of player.
-        if (document.getElementById('rectangle').checked) type = document.getElementById('rectangle').value;
-        else if (document.getElementById('circle').checked) type = document.getElementById('circle').value;
-        else if (document.getElementById('line').checked) type = document.getElementById('line').value;
-        else type = randomType(); // Getting random type if not specified.
+        if (document.getElementById('rectangle').checked) type = PLAYERTYPE.rectangle;
+        else if (document.getElementById('circle').checked) type = PLAYERTYPE.circle;
+        else if (document.getElementById('line').checked) type = PLAYERTYPE.line;
+        else type = getRandomType(); // Getting random type if not specified.
 
         // Getting user preferred team.
         if (document.getElementById('zero').checked) teamNum = 0;
@@ -148,7 +149,6 @@ function startGame(type)
     requestAnimationFrame(drawCanvas);
 }
 
-
 // Function that keeps track of the latency of the current user.
 function checkLatency()
 {
@@ -175,28 +175,16 @@ function drawCanvas()
     drawBackground();
 
     // Draw visible objects.
-    if (inScreenPointsList.length > 0)
-    {
-        drawPoint(inScreenPointsList);
-    }
-    if (inScreenEnergiesList.length > 0)
-    {
-        drawPoint(inScreenEnergiesList);
-    }
-    if (inScreenPlayersList.length > 0)
-    {
-        drawPlayer(inScreenPlayersList);
-    }
-    if (inScreenNeedlesList.length > 0)
-    {
-        drawNeedle(inScreenNeedlesList);
-    }
+    drawPoint(inScreenPointsList);
+    drawPoint(inScreenEnergiesList);
+    drawPlayer(inScreenPlayersList);
+    drawNeedle(inScreenNeedlesList);
     displayInfo(playerInfo, healthPoint);
+
     drawNotification();
 
     requestAnimationFrame(drawCanvas);
 }
-
 
 // Handle socket responses from server.
 function socketHandle()
@@ -263,8 +251,6 @@ function socketHandle()
     });
 }
 
-
-
 /**
  * Function that draws each element of the array of point objects.
  * @param pointArray: Array that contains all the visible public point objects. 
@@ -309,15 +295,15 @@ function drawPlayer(playerArray)
 {
     playerArray.forEach(player =>
     {
-        if (player.type == "Circle")
+        if (player.type == PLAYERTYPE.circle)
         {
             drawCirclePlayer(player);
         }
-        else if (player.type == "Rectangle")
+        else if (player.type == PLAYERTYPE.rectangle)
         {
             drawRectPlayer(player);
         }
-        else if (player.type == "Line")
+        else if (player.type == PLAYERTYPE.line)
         {
             drawLinePlayer(player);
         }
@@ -468,10 +454,10 @@ function displayInfo(inPlayerInfo, inHealthAmount)
 }
 
 //Assign a type randomly for user.
-function randomType()
+function getRandomType()
 {
     var random = Math.floor(Math.random() * 3) + 1;
-    if (random == 1) return "Rectangle";
-    if (random == 2) return "Line";
-    return "Circle";
+    if (random == 1) return PLAYERTYPE.rectangle;
+    if (random == 2) return PLAYERTYPE.line;
+    return PLAYERTYPE.circle;
 }

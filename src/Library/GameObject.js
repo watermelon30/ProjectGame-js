@@ -1,9 +1,9 @@
 // Requiring shared library.
-var Vector2d = require('./Vector.js');
-const GLOBAL = require('./Global.js');
-const COLLISION = require('./Collision.js');
-var dt = 1.0 / GLOBAL.fps // Delta time.
+import { Vector2d } from './Vector.js';
+import { CONFIG } from './Global.js';
+import * as COLLISION from './Collision.js';
 
+var dt = 1.0 / CONFIG.fps // Delta time.
 
 // Base class of game objects in the canvas.
 class GameObject
@@ -130,12 +130,12 @@ class GamePoint extends GameObject
     respawn()
     {
         // Assign random valid position for the point object.
-        let newPos = randomPointPosition(GLOBAL.pointRadius);
+        let newPos = randomPointPosition(CONFIG.pointRadius);
         this.x = newPos.x;
         this.y = newPos.y;
         //Initialize the point attribute. 
         this.velocity = new Vector2d(0, 0);
-        this.radius = GLOBAL.pointRadius;
+        this.radius = CONFIG.pointRadius;
     }
 
     // Calculating the new position.     
@@ -155,9 +155,9 @@ class GamePoint extends GameObject
             // Bounce off the boundary when the point touches the boundary of canvas.
 
             // Touch right side of boundary
-            if (this.x >= GLOBAL.canvasWidth - this.radius)
+            if (this.x >= CONFIG.canvasWidth - this.radius)
             {
-                this.x = GLOBAL.canvasWidth - this.radius;
+                this.x = CONFIG.canvasWidth - this.radius;
                 this.velocity.x = -this.velocity.x;
                 this.corner++;
             }
@@ -176,9 +176,9 @@ class GamePoint extends GameObject
                 this.corner++;
             }
             // Touch bottom of the boundary.
-            else if (this.y >= GLOBAL.canvasHeight - this.radius)
+            else if (this.y >= CONFIG.canvasHeight - this.radius)
             {
-                this.y = GLOBAL.canvasHeight - this.radius;
+                this.y = CONFIG.canvasHeight - this.radius;
                 this.velocity.y = -this.velocity.y;
                 this.corner++;
             }
@@ -315,9 +315,9 @@ class GameEnergy extends GameObject
             // Bounce off the when the point touches the boundary of canvas.
 
             // Touch right side of boundary
-            if (this.x >= GLOBAL.canvasWidth - this.radius)
+            if (this.x >= CONFIG.canvasWidth - this.radius)
             {
-                this.x = GLOBAL.canvasWidth - this.radius;
+                this.x = CONFIG.canvasWidth - this.radius;
                 this.velocity.x = -this.velocity.x;
             }
             // Touch left side of boundary
@@ -333,9 +333,9 @@ class GameEnergy extends GameObject
                 this.velocity.y = -this.velocity.y;
             }
             // Touch bottom of the boundary.
-            else if (this.y >= GLOBAL.canvasHeight - this.radius)
+            else if (this.y >= CONFIG.canvasHeight - this.radius)
             {
-                this.y = GLOBAL.canvasHeight - this.radius;
+                this.y = CONFIG.canvasHeight - this.radius;
                 this.velocity.y = -this.velocity.y;
             }
             this.x += this.velocity.x;
@@ -443,7 +443,7 @@ class PlayerCir extends GamePlayer
         this.screenBR = new Vector2d(x + screenWidth / 2, y + screenHeight / 2);
         this.invisibleTimer = 10;
         this.invisible = false;
-        this.lifeBar = new LifeBar(GLOBAL.circleLifeAmount);
+        this.lifeBar = new LifeBar(CONFIG.circleLifeAmount);
         this.energyArray = [];
     }
 
@@ -499,7 +499,7 @@ class PlayerCir extends GamePlayer
             this.alpha = 1;
 
             //Fueling invisible timer if the maximum is not reached yet.
-            if (this.invisibleTimer < GLOBAL.circleMaxInvMode - 0.01)
+            if (this.invisibleTimer < CONFIG.circleMaxInvMode - 0.01)
             {
                 this.invisibleTimer += 0.01;
             }
@@ -590,9 +590,9 @@ class PlayerCir extends GamePlayer
      */
     shrink(amount)
     {
-        if (this.radius > GLOBAL.circleMinR)
+        if (this.radius > CONFIG.circleMinR)
         {
-            this.radius *= (1 - GLOBAL.circleShrinkRate * amount);
+            this.radius *= (1 - CONFIG.circleShrinkRate * amount);
             return true;
         }
         return false;
@@ -609,9 +609,9 @@ class PlayerCir extends GamePlayer
             // return 1 as recovering health amount
             return 1;
         }
-        if (this.radius < GLOBAL.circleMaxR)
+        if (this.radius < CONFIG.circleMaxR)
         {
-            this.radius *= (1 + GLOBAL.circleStretchRate);
+            this.radius *= (1 + CONFIG.circleStretchRate);
             // return 2 as gaining mass.
             return 2;
         }
@@ -646,7 +646,7 @@ class PlayerCir extends GamePlayer
      */
     emit()
     {
-        if (this.radius > GLOBAL.circleMinR)
+        if (this.radius > CONFIG.circleMinR)
         {
             let direction = this.playerVelo.normalise(),
                 energyX = this.x + direction.x * this.radius,
@@ -688,9 +688,9 @@ class PlayerLine extends GamePlayer
         this.screenTL = new Vector2d(x - screenWidth / 2, y - screenHeight / 2);
         this.screenBR = new Vector2d(x + screenWidth / 2, y + screenHeight / 2);
         this.endPoint = getLine(this.x, this.y, this.direction, this.length);
-        this.grid = new Vector2d(this.x % GLOBAL.gridGap, this.y % GLOBAL.gridGap);
+        this.grid = new Vector2d(this.x % CONFIG.gridGap, this.y % CONFIG.gridGap);
         this.emit = false;
-        this.lifeBar = new LifeBar(GLOBAL.lineLifeAmount);
+        this.lifeBar = new LifeBar(CONFIG.lineLifeAmount);
         this.ammo = 100;
 
         //Gathering ammo (true) OR increase size/life (false) when points eaten.
@@ -739,8 +739,8 @@ class PlayerLine extends GamePlayer
         this.screenTL.y = this.y - this.screenHeight / 2;
         this.screenBR.x = this.x + this.screenWidth / 2;
         this.screenBR.y = this.y + this.screenHeight / 2;
-        this.grid.x = this.x % GLOBAL.gridGap;
-        this.grid.y = this.y % GLOBAL.gridGap;
+        this.grid.x = this.x % CONFIG.gridGap;
+        this.grid.y = this.y % CONFIG.gridGap;
 
         if (this.emit == true)
         {
@@ -801,9 +801,9 @@ class PlayerLine extends GamePlayer
      */
     shrink(amount)
     {
-        if (this.length > GLOBAL.lineMinLength)
+        if (this.length > CONFIG.lineMinLength)
         {
-            this.length *= (1 - GLOBAL.lineShrinkRate * amount);
+            this.length *= (1 - CONFIG.lineShrinkRate * amount);
             return true;
         }
 
@@ -828,9 +828,9 @@ class PlayerLine extends GamePlayer
                 // Return 1 as increasing health amount.
                 return 1;
             }
-            if (this.length < GLOBAL.lineMaxLength)
+            if (this.length < CONFIG.lineMaxLength)
             {
-                this.length *= (1 + GLOBAL.lineStretchRate * bonus);
+                this.length *= (1 + CONFIG.lineStretchRate * bonus);
 
                 // Return 2 as increasing length of the Line.
                 return 2;
@@ -838,8 +838,8 @@ class PlayerLine extends GamePlayer
         }
         else
         {
-            this.ammo += GLOBAL.energyBonusRate * GLOBAL.ammoReload * bonus;
-            if (this.ammo > GLOBAL.lineMaxAmmo) this.ammo = GLOBAL.lineMaxAmmo;
+            this.ammo += CONFIG.energyBonusRate * CONFIG.ammoReload * bonus;
+            if (this.ammo > CONFIG.lineMaxAmmo) this.ammo = CONFIG.lineMaxAmmo;
 
             // Return 4 as loading ammo.
             return 4;
@@ -885,7 +885,7 @@ class PlayerRect extends GamePlayer
         this.playerVelo = new Vector2d(0, 0);
         this.screenTL = new Vector2d(x - screenWidth / 2, y - screenHeight / 2);
         this.screenBR = new Vector2d(x + screenWidth / 2, y + screenHeight / 2);
-        this.lifeBar = new LifeBar(GLOBAL.rectangleLifeAmount);
+        this.lifeBar = new LifeBar(CONFIG.rectangleLifeAmount);
     }
 
     /**
@@ -1032,9 +1032,9 @@ class PlayerRect extends GamePlayer
         if (point.stuck)
         {
             // Check if a point is going to be crushed by a boundary.
-            if (point.x + point.radius + velocityToPoint.x >= GLOBAL.canvasWidth
+            if (point.x + point.radius + velocityToPoint.x >= CONFIG.canvasWidth
                 || point.x - point.radius + velocityToPoint.x <= 0
-                || point.y + point.radius + velocityToPoint.y >= GLOBAL.canvasHeight
+                || point.y + point.radius + velocityToPoint.y >= CONFIG.canvasHeight
                 || point.y - point.radius + velocityToPoint.y <= 0)
             {
                 // console.log("boooom");
@@ -1052,10 +1052,10 @@ class PlayerRect extends GamePlayer
     shrink(amount)
     {
         // Only shrink if the rectangle is still greater than minimum.
-        if (this.width > GLOBAL.rectangleMinW && this.height > GLOBAL.rectangleMinH)
+        if (this.width > CONFIG.rectangleMinW && this.height > CONFIG.rectangleMinH)
         {
-            this.width *= (1 - GLOBAL.rectangleShrinkRate * amount);
-            this.height *= (1 - GLOBAL.rectangleShrinkRate * amount);
+            this.width *= (1 - CONFIG.rectangleShrinkRate * amount);
+            this.height *= (1 - CONFIG.rectangleShrinkRate * amount);
             return true;
         }
         return false;
@@ -1076,10 +1076,10 @@ class PlayerRect extends GamePlayer
             //return 1 if increasing the health amount.
             return 1;
         }
-        if (this.width < GLOBAL.rectangleMaxW && this.height < GLOBAL.rectangleMaxH)
+        if (this.width < CONFIG.rectangleMaxW && this.height < CONFIG.rectangleMaxH)
         {
-            this.width *= (1 + GLOBAL.rectangleStretchRate * bonus);
-            this.height *= (1 + GLOBAL.rectangleStretchRate * bonus);
+            this.width *= (1 + CONFIG.rectangleStretchRate * bonus);
+            this.height *= (1 + CONFIG.rectangleStretchRate * bonus);
             //return 2 if gaining the rectangle mass.
             return 2;
         }
@@ -1171,7 +1171,7 @@ function checkBound(playerX, playerY, velocity, limit)
 
     // Velocity in x direction
     // Check if the player will exceed the canvas bound in new position.
-    if (playerX + velocity.x <= GLOBAL.canvasWidth - limit)
+    if (playerX + velocity.x <= CONFIG.canvasWidth - limit)
     {
         if (playerX + velocity.x >= 0 + limit)
         {
@@ -1181,7 +1181,7 @@ function checkBound(playerX, playerY, velocity, limit)
 
     // Velocity in y direction
     // Check if the player will exceed the canvas bound in new position.
-    if (playerY + velocity.y <= GLOBAL.canvasHeight - limit)
+    if (playerY + velocity.y <= CONFIG.canvasHeight - limit)
     {
         if (playerY + velocity.y >= 0 + limit)
         {
@@ -1199,17 +1199,9 @@ function checkBound(playerX, playerY, velocity, limit)
  */
 function randomPointPosition(radius)
 {
-    let x = Math.random() * (GLOBAL.canvasWidth - radius),
-        y = Math.random() * (GLOBAL.canvasHeight - radius);
+    let x = Math.random() * (CONFIG.canvasWidth - radius),
+        y = Math.random() * (CONFIG.canvasHeight - radius);
     return new Vector2d(x, y);
 }
 
-// Exporting classes that will be used by other files.
-module.exports = {
-    GamePoint: GamePoint,
-    //    gameNeedle:gameNeedle,
-    //    gameEnergy:gameEnergy,
-    PlayerLine: PlayerLine,
-    PlayerRect: PlayerRect,
-    PlayerCir: PlayerCir
-}; 
+export { GamePoint, PlayerLine, PlayerRect, PlayerCir }

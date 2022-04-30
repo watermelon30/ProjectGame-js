@@ -82,9 +82,9 @@
         <input type="text" id="username" autofocus placeholder="Username">
         <p style="font-size: 20px;"> Choose your fighter </p>
         <!-- Ask for type of characters -->
-        <input type="radio" name="type" id="rectangle" value="Rectangle"> <label for="rectangle">Rectangle</label>
-        <input type="radio" name="type" id="circle" value="Circle"> <label for="circle">Circle</label>
-        <input type="radio" name="type" id="line" value="Line"> <label for="line">Line</label>
+        <input type="radio" name="type" id="rectangle"> <label for="rectangle">Rectangle</label>
+        <input type="radio" name="type" id="circle"> <label for="circle">Circle</label>
+        <input type="radio" name="type" id="line"> <label for="line">Line</label>
         <br>
         <p style="font-size: 20px;"> Join Team </p>
         <!-- Ask for the desired team -->
@@ -102,6 +102,5 @@
         <canvas id="canvas"></canvas>
         </body>
         <!-- App.js to handle user events and server responses. -->
-        <script src="/Client/App.js"></script>
-
+        <script type="module" src="/Client/App.js"></script>
 </html>
